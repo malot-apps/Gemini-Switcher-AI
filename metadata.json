@@ -1,0 +1,6 @@
+{
+  "name": "Gemini Switcher AI",
+  "description": "Full-featured Gemini API client with auto-rotation, live preview engine, multi-key vault, and model continuity. Developed by Tonmoy Mir Malot.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

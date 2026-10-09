@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gemini Switcher AI — Multi-Key Hub & Live Preview Engine</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              400: '#38bdf8',
+              500: '#0284c7',
+              600: '#0369a1',
+            },
+            darkBg: '#090d16',
+            darkSurface: '#0f172a',
+            darkCard: '#1e293b',
+            darkBorder: '#334155'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Highlight.js for Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- Marked.js for Markdown Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- JSZip for ZIP Project Downloads -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Markdown prose styles inside chat */
+    .prose-chat pre {
+      margin: 0.75rem 0;
+      border-radius: 0.5rem;
+      background: #090d16 !important;
+      border: 1px solid #334155;
+      overflow-x: auto;
+      position: relative;
+    }
+    .prose-chat code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85rem;
+    }
+    .prose-chat :not(pre) > code {
+      background-color: #1e293b;
+      color: #93c5fd;
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.25rem;
+      border: 1px solid #334155;
+    }
+    .prose-chat p { margin-bottom: 0.65rem; line-height: 1.6; }
+    .prose-chat p:last-child { margin-bottom: 0; }
+    .prose-chat ul, .prose-chat ol { margin: 0.5rem 0 0.5rem 1.25rem; }
+    .prose-chat ul { list-style-type: disc; }
+    .prose-chat ol { list-style-type: decimal; }
+    .prose-chat li { margin-bottom: 0.25rem; }
+    .prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; color: #f1f5f9; }
+    .prose-chat blockquote { border-left: 3px solid #0284c7; padding-left: 0.75rem; color: #94a3b8; font-style: italic; margin: 0.5rem 0; }
+    .prose-chat table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.85rem; }
+    .prose-chat th, .prose-chat td { border: 1px solid #334155; padding: 0.4rem 0.6rem; text-align: left; }
+    .prose-chat th { background-color: #1e293b; }
+
+    /* Smooth preview resizing */
+    .preview-frame {
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body class="bg-darkBg text-slate-100 min-h-screen flex flex-col font-sans antialiased select-none md:select-auto">
+
+  <!-- TOP HEADER & VIEW MODE BAR -->
+  <header class="bg-darkSurface border-b border-darkBorder sticky top-0 z-30 px-3 py-2 sm:px-5 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+    <div class="flex items-center space-x-2.5">
+      <button id="sidebarToggleBtn" class="lg:hidden p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-darkCard focus:outline-none">
+        <i class="fa-solid fa-bars text-sm"></i>
+      </button>
+
+      <!-- App Logo & Branding -->
+      <div class="flex items-center space-x-2.5 cursor-pointer" onclick="openAboutModal()">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20 text-white relative">
+          <i class="fa-solid fa-arrows-rotate text-xs animate-spin-slow"></i>
+          <span class="absolute -top-1 -right-1 text-[8px] text-amber-300"><i class="fa-solid fa-sparkles"></i></span>
+        </div>
+        <div>
+          <div class="flex items-center space-x-1.5">
+            <h1 class="text-sm sm:text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-300 to-indigo-300">Gemini Switcher AI</h1>
+            <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">Auto-Rotator</span>
+          </div>
+          <p class="text-[10px] text-slate-400 hidden md:block">Multi-Key Hub • Live Preview • 100% Client-Side</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: VIEW MODE TABS -->
+    <div class="flex items-center bg-darkBg border border-darkBorder rounded-lg p-0.5 text-xs font-medium">
+      <button onclick="setViewMode('chat')" id="tabChatBtn" class="view-tab px-3 py-1 rounded-md text-white bg-blue-600 transition-all flex items-center space-x-1.5 shadow-sm">
+        <i class="fa-solid fa-comments text-xs"></i>
+        <span>Chat</span>
+      </button>
+
+      <button onclick="setViewMode('split')" id="tabSplitBtn" class="view-tab hidden md:flex px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all items-center space-x-1.5">
+        <i class="fa-solid fa-table-columns text-xs"></i>
+        <span>Split View</span>
+      </button>
+
+      <button onclick="setViewMode('code')" id="tabCodeBtn" class="view-tab px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all flex items-center space-x-1.5">
+        <i class="fa-solid fa-code text-xs"></i>
+        <span>Code</span>
+      </button>
+
+      <button onclick="setViewMode('preview')" id="tabPreviewBtn" class="view-tab px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all flex items-center space-x-1.5 relative">
+        <i class="fa-solid fa-play text-emerald-400 text-xs"></i>
+        <span>Preview</span>
+        <span id="previewIndicatorDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute top-1 right-1 hidden"></span>
+      </button>
+    </div>
+
+    <!-- RIGHT ACTION CONTROLS -->
+    <div class="flex items-center space-x-2 text-xs">
+      <!-- Active Key Status Chip -->
+      <button onclick="openKeyVaultModal()" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-slate-800/90 border border-slate-700 hover:border-slate-500 text-slate-300 transition-colors">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+        <span class="font-medium truncate max-w-[80px] sm:max-w-[120px]" id="headerActiveKeyName">No Key</span>
+        <span id="headerKeyCountBadge" class="bg-blue-600 text-white rounded-full px-1.5 text-[9px] font-bold">0</span>
+      </button>
+
+      <!-- Download Dropdown -->
+      <div class="relative">
+        <button onclick="toggleDownloadMenu()" class="p-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1 transition-colors" title="Export / Download Code">
+          <i class="fa-solid fa-download text-xs"></i>
+          <span class="hidden sm:inline">Export</span>
+        </button>
+
+        <div id="downloadMenu" class="absolute right-0 mt-2 w-44 bg-darkSurface border border-darkBorder rounded-xl shadow-2xl py-1 z-50 hidden">
+          <button onclick="downloadCodeFile('html')" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-darkCard flex items-center space-x-2">
+            <i class="fa-solid fa-file-code text-orange-400"></i>
+            <span>Download HTML</span>
+          </button>
+          <button onclick="downloadCodeFile('zip')" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-darkCard flex items-center space-x-2">
+            <i class="fa-solid fa-file-zipper text-blue-400"></i>
+            <span>Download ZIP Bundle</span>
+          </button>
+          <div class="border-t border-darkBorder my-1"></div>
+          <button onclick="copyExtractedCode()" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-darkCard flex items-center space-x-2">
+            <i class="fa-solid fa-copy text-emerald-400"></i>
+            <span>Copy Full Code</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- About / Developer Profile Button -->
+      <button onclick="openAboutModal()" class="p-1.5 text-slate-400 hover:text-cyan-300 hover:bg-darkCard rounded-lg transition-colors" title="About Developer">
+        <i class="fa-solid fa-circle-info text-sm"></i>
+      </button>
+
+      <!-- Clear Chat -->
+      <button onclick="clearChatConfirm()" title="Clear Conversation" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-darkCard rounded-lg transition-colors">
+        <i class="fa-solid fa-trash-can text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- AUTO-ROTATION NOTIFICATION TOAST -->
+  <div id="rotationToast" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-10px] w-11/12 max-w-md">
+    <div class="bg-amber-950/95 border border-amber-500/60 rounded-xl p-3 shadow-2xl backdrop-blur flex items-start space-x-3 text-amber-200">
+      <div class="p-1.5 bg-amber-500/20 rounded-lg text-amber-400 shrink-0 mt-0.5">
+        <i class="fa-solid fa-arrows-rotate fa-spin text-base"></i>
+      </div>
+      <div class="flex-1 text-xs">
+        <div class="flex items-center justify-between font-bold text-amber-100">
+          <span>Auto-Rotation Triggered!</span>
+          <span class="text-[10px] bg-amber-800/80 px-1.5 py-0.5 rounded text-amber-300 font-mono">429 Failover</span>
+        </div>
+        <p id="toastRotationDetails" class="text-amber-300/90 mt-0.5 leading-tight">Switching key seamlessly with model continuity...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP WORKSPACE CONTAINER -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- SIDEBAR: Controls & Key Vault -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-80 bg-darkSurface border-r border-darkBorder flex flex-col transition-transform duration-300 -translate-x-full lg:static lg:translate-x-0">
+      <div class="p-3.5 border-b border-darkBorder flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-sliders text-cyan-400 text-xs"></i>
+          <span class="font-semibold text-xs text-slate-200 uppercase tracking-wider">Model & Vault</span>
+        </div>
+        <button id="sidebarCloseBtn" class="lg:hidden p-1 text-slate-400 hover:text-white rounded">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+        <!-- MODEL CONTINUITY SELECTOR -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+              <span>Target Model</span>
+              <span class="text-[9px] text-cyan-400 font-normal">(Preserved on 429)</span>
+            </label>
+            <span class="text-[10px] text-slate-400 font-mono" id="modelTokensBadge">Gemini API</span>
+          </div>
+          <select id="modelSelector" class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+            <option value="gemini-2.5-flash">gemini-2.5-flash (Fast & Multimodal)</option>
+            <option value="gemini-2.0-flash" selected>gemini-2.0-flash (Next-Gen Flash)</option>
+            <option value="gemini-1.5-pro">gemini-1.5-pro (Deep Coding & Logic)</option>
+            <option value="gemini-1.5-flash">gemini-1.5-flash (High Speed)</option>
+            <option value="custom">Custom Model ID...</option>
+          </select>
+          <div id="customModelContainer" class="mt-2 hidden">
+            <input type="text" id="customModelInput" placeholder="e.g. gemini-1.5-flash-8b" class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">
+            Model stickiness guarantees zero downgrade during key rotation.
+          </p>
+        </div>
+
+        <!-- SYSTEM INSTRUCTION FIELD -->
+        <div class="border-t border-darkBorder pt-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-slate-300">System Persona</label>
+            <select id="presetSystemPromptSelect" class="bg-darkCard border border-darkBorder rounded px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-slate-200">
+              <option value="">Select preset...</option>
+              <option value="web_developer" selected>Web App Architect & Builder</option>
+              <option value="fullstack">Senior Full-Stack Principal</option>
+              <option value="concise">Ultra-Concise Direct Coder</option>
+              <option value="tutor">Patient Explanatory Mentor</option>
+            </select>
+          </div>
+          <textarea id="systemInstructionInput" rows="3" placeholder="Set guidelines for HTML, JS, styling..." class="w-full bg-darkCard border border-darkBorder rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none font-mono"></textarea>
+          <p class="text-[10px] text-slate-400 mt-1">Instructed to return complete runnable code for Live Preview.</p>
+        </div>
+
+        <!-- KEY VAULT SECTION -->
+        <div class="border-t border-darkBorder pt-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <span class="text-xs font-semibold text-slate-300">API Key Vault</span>
+              <span id="vaultTotalCount" class="text-[10px] text-slate-400 ml-1">(0 keys)</span>
+            </div>
+            <button onclick="openAddKeyModal()" class="text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-medium px-2 py-1 rounded flex items-center space-x-1 transition-colors">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Key</span>
+            </button>
+          </div>
+
+          <!-- Key List in Sidebar -->
+          <div id="vaultKeyList" class="space-y-2 mt-2"></div>
+
+          <!-- Empty Vault State -->
+          <div id="vaultEmptyState" class="bg-darkCard/60 border border-dashed border-darkBorder rounded-lg p-3 text-center">
+            <i class="fa-solid fa-key text-slate-500 text-2xl mx-auto mb-1.5 block"></i>
+            <p class="text-xs font-medium text-slate-300">No Keys Added</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Add 2+ keys to unlock automatic 429 failover.</p>
+            <button onclick="openAddKeyModal()" class="mt-2 text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">Add first key &rarr;</button>
+          </div>
+
+          <!-- Auto-rotation status badge -->
+          <div class="mt-3 bg-slate-900/80 rounded-lg p-2.5 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+            <div class="flex items-center text-slate-300 font-medium">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>
+              Auto-Failover Active
+            </div>
+            <p class="text-[10px] text-slate-400">
+              When 429 occurs, keys cooldown for 60s while the next available key continues smoothly.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SIDEBAR FOOTER -->
+      <div class="p-3 border-t border-darkBorder bg-darkSurface/50 text-[10px] text-slate-400 flex items-center justify-between">
+        <span>Zero-Server Architecture</span>
+        <button onclick="exportVaultData()" class="text-cyan-400 hover:text-cyan-300 underline">Export Vault</button>
+      </div>
+    </aside>
+
+    <!-- SIDEBAR OVERLAY for Mobile -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm"></div>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden bg-darkBg">
+
+      <!-- LEFT / MAIN PANE: CHAT & PROMPT -->
+      <div id="chatPane" class="flex-1 flex flex-col overflow-hidden border-r border-darkBorder">
+
+        <!-- CHAT MESSAGE SCROLL AREA -->
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4">
+
+          <!-- WELCOME HERO -->
+          <div id="welcomeHero" class="max-w-2xl mx-auto my-6 text-center space-y-4">
+            <div class="inline-flex p-3.5 rounded-2xl bg-gradient-to-tr from-cyan-600/20 via-blue-600/10 to-indigo-600/20 border border-cyan-500/20 shadow-xl text-cyan-400">
+              <i class="fa-solid fa-arrows-rotate text-3xl"></i>
+            </div>
+            <div>
+              <h2 class="text-xl sm:text-2xl font-bold text-slate-100">Gemini Switcher AI</h2>
+              <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto mt-1">
+                Multi-Key Client & Live Preview Studio. Never get stopped by <span class="text-amber-400 font-mono">429 Rate Limits</span> again.
+              </p>
+            </div>
+
+            <!-- Quick Template Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 max-w-lg mx-auto text-left pt-2">
+              <button onclick="promptTemplate('pomodoro')" class="bg-darkSurface border border-darkBorder p-2.5 rounded-xl hover:border-slate-500 text-left transition-all">
+                <span class="text-emerald-400 text-xs font-semibold block mb-0.5"><i class="fa-solid fa-clock text-[10px] mr-1"></i> Cyberpunk Timer</span>
+                <p class="text-[10px] text-slate-400">Pomodoro with neon canvas progress ring and audio synthesizer.</p>
+              </button>
+              <button onclick="promptTemplate('solar')" class="bg-darkSurface border border-darkBorder p-2.5 rounded-xl hover:border-slate-500 text-left transition-all">
+                <span class="text-cyan-400 text-xs font-semibold block mb-0.5"><i class="fa-solid fa-globe text-[10px] mr-1"></i> Solar Simulator</span>
+                <p class="text-[10px] text-slate-400">Interactive Canvas orbiting planetary physics model.</p>
+              </button>
+              <button onclick="promptTemplate('retro_pong')" class="bg-darkSurface border border-darkBorder p-2.5 rounded-xl hover:border-slate-500 text-left transition-all">
+                <span class="text-indigo-400 text-xs font-semibold block mb-0.5"><i class="fa-solid fa-gamepad text-[10px] mr-1"></i> Arcade Pong Game</span>
+                <p class="text-[10px] text-slate-400">HTML5 Pong game with sound effects and AI opponent.</p>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- INPUT BAR & DRAFT STATUS -->
+        <div class="border-t border-darkBorder bg-darkSurface/90 backdrop-blur p-2.5 sm:p-3.5">
+          <div class="max-w-4xl mx-auto space-y-2">
+
+            <!-- Auto-save Draft Indicator & Real-Time Token Estimator -->
+            <div class="flex flex-wrap items-center justify-between gap-1.5 text-[11px] text-slate-400 px-1">
+              <div class="flex items-center space-x-2 flex-wrap">
+                <span id="draftIndicator" class="text-slate-500 flex items-center space-x-1">
+                  <i class="fa-solid fa-check text-emerald-400 text-xs"></i>
+                  <span>Draft saved</span>
+                </span>
+                <span class="text-slate-600">•</span>
+                <span id="activeModelLabel" class="text-cyan-400 font-mono font-medium">gemini-2.0-flash</span>
+              </div>
+
+              <!-- Real-Time Token Estimator Badge with Hover Breakdown -->
+              <div class="flex items-center space-x-2">
+                <div id="tokenEstimatorBadge" class="group relative flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-slate-300 font-mono text-[10px] sm:text-[11px] cursor-help transition-all shadow-sm">
+                  <i class="fa-solid fa-bolt text-cyan-400 text-xs"></i>
+                  <span id="tokenEstimatorLabel" class="text-cyan-300 font-semibold tracking-tight">~0 ctx tokens</span>
+                  <span class="text-slate-500">|</span>
+                  <span id="charCountLabel" class="text-slate-400">0 prompt chars</span>
+
+                  <!-- Context Breakdown Tooltip -->
+                  <div class="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 p-2.5 bg-darkCard border border-darkBorder rounded-xl shadow-2xl text-[10px] font-sans text-slate-300 z-50 pointer-events-none backdrop-blur-md">
+                    <div class="font-bold text-slate-100 pb-1 mb-1 border-b border-slate-700 flex items-center justify-between">
+                      <span>Context Token Estimator</span>
+                      <span class="text-[9px] text-cyan-400 font-mono font-normal">~4 chars/token</span>
+                    </div>
+                    <div class="space-y-1 font-mono text-[10px]">
+                      <div class="flex justify-between text-slate-400">
+                        <span>• Input Draft:</span>
+                        <span id="tooltipPromptTokens" class="text-cyan-300 font-medium">~0 tokens</span>
+                      </div>
+                      <div class="flex justify-between text-slate-400">
+                        <span>• Chat History:</span>
+                        <span id="tooltipHistoryTokens" class="text-slate-300 font-medium">~0 tokens</span>
+                      </div>
+                      <div class="flex justify-between text-slate-400">
+                        <span>• System Persona:</span>
+                        <span id="tooltipSystemTokens" class="text-slate-300 font-medium">~0 tokens</span>
+                      </div>
+                      <div class="border-t border-slate-700/80 pt-1 mt-1 flex justify-between font-bold text-slate-100">
+                        <span>Total Context:</span>
+                        <span id="tooltipTotalTokens" class="text-emerald-400 font-bold">~0 tokens</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button onclick="clearDraftPrompt()" id="clearDraftBtn" class="text-slate-400 hover:text-red-400 hidden text-[10px]">Clear</button>
+              </div>
+            </div>
+
+            <!-- Textarea & Send button container -->
+            <div class="relative bg-darkCard border border-darkBorder rounded-xl focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-all shadow-inner">
+              <textarea
+                id="promptInput"
+                rows="2"
+                placeholder="Describe an app, UI, or script to generate and preview live... (Ctrl+Enter to send)"
+                class="w-full bg-transparent px-3 py-2.5 pr-20 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none max-h-48"
+              ></textarea>
+
+              <div class="absolute right-2 bottom-2 flex items-center space-x-1.5">
+                <button
+                  id="sendBtn"
+                  onclick="handleSendPrompt()"
+                  class="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium p-2 rounded-lg transition-colors flex items-center justify-center shadow-md shadow-cyan-600/30"
+                  title="Send Prompt (Ctrl+Enter)"
+                >
+                  <i id="sendIcon" class="fa-solid fa-paper-plane text-xs"></i>
+                  <i id="loadingSpinner" class="fa-solid fa-circle-notch fa-spin text-xs hidden"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[10px] text-slate-500 px-1">
+              <span>Direct client calls to <code class="text-slate-400">generativelanguage.googleapis.com</code></span>
+              <span class="hidden sm:inline">Press <kbd class="px-1 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300 font-mono">Ctrl+Enter</kbd> to submit</span>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT PANE: LIVE PREVIEW & CODE VIEW -->
+      <div id="previewPane" class="flex-1 flex flex-col overflow-hidden bg-darkSurface hidden md:flex">
+
+        <!-- PREVIEW TOOLBAR -->
+        <div class="px-3 py-2 border-b border-darkBorder bg-darkSurface/90 flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-slate-200 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+              <span id="previewPaneTitle">Live Preview Engine</span>
+            </span>
+
+            <!-- Device Size Switcher -->
+            <div id="deviceSwitcher" class="flex items-center space-x-1 bg-darkBg border border-darkBorder rounded-lg p-0.5 ml-2 text-[11px]">
+              <button onclick="setPreviewSize('desktop')" id="sizeDesktopBtn" class="px-2 py-0.5 rounded text-white bg-slate-700 font-medium" title="Desktop View (100%)">
+                <i class="fa-solid fa-desktop mr-1 text-[10px]"></i>Desktop
+              </button>
+              <button onclick="setPreviewSize('tablet')" id="sizeTabletBtn" class="px-2 py-0.5 rounded text-slate-400 hover:text-white" title="Tablet View (768px)">
+                <i class="fa-solid fa-tablet-screen-button mr-1 text-[10px]"></i>Tablet
+              </button>
+              <button onclick="setPreviewSize('mobile')" id="sizeMobileBtn" class="px-2 py-0.5 rounded text-slate-400 hover:text-white" title="Mobile View (375px)">
+                <i class="fa-solid fa-mobile-screen mr-1 text-[10px]"></i>Mobile
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button onclick="refreshPreviewFrame()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-darkCard" title="Reload Preview Frame">
+              <i class="fa-solid fa-rotate-right text-xs"></i>
+            </button>
+            <button onclick="openPreviewInNewTab()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-darkCard" title="Open Preview in New Window">
+              <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+            </button>
+            <button onclick="downloadCodeFile('html')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center space-x-1 text-[11px] shadow">
+              <i class="fa-solid fa-download text-[10px]"></i>
+              <span>Download</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- PREVIEW CONTENT AREA -->
+        <div id="previewContainer" class="flex-1 bg-[#050811] flex items-center justify-center p-2 sm:p-4 overflow-hidden relative">
+
+          <!-- The Live Sandboxed Iframe -->
+          <iframe
+            id="livePreviewFrame"
+            sandbox="allow-scripts allow-modals allow-forms allow-same-origin"
+            class="preview-frame w-full h-full bg-white rounded-xl shadow-2xl border border-slate-700/80 transition-all"
+            srcdoc="<!DOCTYPE html><html><body style='font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0f172a;color:#94a3b8;'><div style='text-align:center;'><h2>Gemini Switcher Live Preview Ready</h2><p>Generate HTML or web applications in the chat to see them live here!</p></div></body></html>"
+          ></iframe>
+
+          <!-- Dedicated Code View Container -->
+          <div id="codeViewContainer" class="hidden absolute inset-0 bg-[#090d16] flex flex-col p-4 overflow-hidden">
+            <div class="flex items-center justify-between pb-2 border-b border-darkBorder mb-3">
+              <span class="text-xs font-mono text-slate-400" id="codeViewStats">Extracted Code (0 lines)</span>
+              <div class="flex items-center space-x-2">
+                <button onclick="copyExtractedCode()" class="text-xs px-2.5 py-1 rounded bg-darkCard hover:bg-slate-700 text-slate-200 flex items-center space-x-1">
+                  <i class="fa-solid fa-copy text-xs"></i>
+                  <span>Copy Code</span>
+                </button>
+                <button onclick="downloadCodeFile('html')" class="text-xs px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white">Download</button>
+              </div>
+            </div>
+            <pre class="flex-1 overflow-auto rounded-lg border border-darkBorder p-3 text-xs bg-[#050811] font-mono select-text"><code id="codeViewBlock" class="hljs language-html"></code></pre>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- SLEEK BRANDING FOOTER WITH DEVELOPER CREDIT & GITHUB LINK -->
+  <footer class="bg-darkSurface/90 border-t border-darkBorder px-3 py-1.5 sm:px-5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 shadow-inner z-20">
+    <div class="flex items-center space-x-2">
+      <span>Developed with <i class="fa-solid fa-heart text-red-500 animate-pulse"></i> by</span>
+      <a href="https://github.com/mirmalot" target="_blank" rel="noopener noreferrer" class="font-bold text-slate-200 hover:text-cyan-300 flex items-center space-x-1 transition-colors">
+        <i class="fa-brands fa-github text-sm"></i>
+        <span>Tonmoy Mir Malot</span>
+      </a>
+    </div>
+
+    <div class="flex items-center space-x-3 text-[10px]">
+      <span class="text-emerald-400 font-mono flex items-center">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>
+        Zero-Server • 100% Client-Side Privacy
+      </span>
+      <button onclick="openAboutModal()" class="text-slate-400 hover:text-slate-200 underline">About</button>
+    </div>
+  </footer>
+
+  <!-- MODAL: ABOUT DEVELOPER & APP -->
+  <div id="aboutModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden px-4">
+    <div class="bg-darkSurface border border-darkBorder rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-darkBorder">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white">
+            <i class="fa-solid fa-arrows-rotate text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-100">Gemini Switcher AI</h3>
+            <p class="text-[10px] text-slate-400">Multi-Key Hub & Live Preview Studio</p>
+          </div>
+        </div>
+        <button onclick="closeAboutModal()" class="text-slate-400 hover:text-white p-1 rounded">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 space-y-3">
+        <p>
+          A privacy-focused, zero-server Google Gemini client designed for developers. Solves <code class="text-amber-400">HTTP 429 Rate Limits</code> by intelligently rotating across a pool of API keys stored in your browser's local vault.
+        </p>
+
+        <!-- Developer Credit Card -->
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow">
+              TM
+            </div>
+            <div>
+              <div class="font-bold text-slate-100 flex items-center space-x-1.5">
+                <span>Tonmoy Mir Malot</span>
+                <span class="text-[9px] bg-cyan-950 text-cyan-400 px-1.5 py-0.2 rounded border border-cyan-800">Creator</span>
+              </div>
+              <p class="text-[10px] text-slate-400">Developed with ❤️ for developers worldwide</p>
+            </div>
+          </div>
+
+          <a href="https://github.com/mirmalot" target="_blank" rel="noopener noreferrer" class="mt-2 w-full py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 flex items-center justify-center space-x-2 font-medium transition-colors border border-slate-700 text-xs">
+            <i class="fa-brands fa-github text-sm"></i>
+            <span>Visit GitHub Profile (@mirmalot)</span>
+          </a>
+        </div>
+
+        <div class="space-y-1 text-[11px] text-slate-400">
+          <div>• <strong>Privacy:</strong> All keys stay 100% inside your browser localStorage.</div>
+          <div>• <strong>Continuity:</strong> Selected model and chat context stay locked during failovers.</div>
+          <div>• <strong>Live Preview:</strong> Real-time sandboxed execution of generated web apps.</div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-darkBorder">
+        <button onclick="closeAboutModal()" class="px-4 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / EDIT KEY -->
+  <div id="addKeyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden px-4">
+    <div class="bg-darkSurface border border-darkBorder rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+          <i class="fa-solid fa-key text-cyan-400 text-sm"></i>
+          <span>Add Gemini API Key</span>
+        </h3>
+        <button onclick="closeAddKeyModal()" class="text-slate-400 hover:text-white p-1 rounded">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Key Label / Alias</label>
+          <input type="text" id="modalKeyName" placeholder="e.g. Primary Key, Backup 1" class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">API Key</label>
+          <div class="relative">
+            <input type="password" id="modalKeyValue" placeholder="AIzaSy..." class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-2 pr-10 text-xs font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+            <button type="button" onclick="toggleModalKeyVisibility()" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200">
+              <i id="eyeIcon" class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Stored strictly in browser <code class="text-cyan-300">localStorage</code>. Zero 3rd party leakage.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-darkBorder">
+        <button onclick="closeAddKeyModal()" class="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-darkCard">Cancel</button>
+        <button onclick="saveNewKey()" class="px-4 py-1.5 rounded-lg text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-medium shadow">Save to Vault</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: KEY VAULT FULL STATS -->
+  <div id="keyVaultModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden px-4">
+    <div class="bg-darkSurface border border-darkBorder rounded-2xl w-full max-w-xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-darkBorder">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center">
+            <i class="fa-solid fa-shield-halved text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-100">API Key Vault & Health Diagnostics</h3>
+            <p class="text-[11px] text-slate-400">Manage rotation priority and test individual keys.</p>
+          </div>
+        </div>
+        <button onclick="closeKeyVaultModal()" class="text-slate-400 hover:text-white p-1 rounded">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div id="modalVaultList" class="flex-1 overflow-y-auto py-3 space-y-2.5"></div>
+
+      <div class="pt-3 border-t border-darkBorder flex items-center justify-between">
+        <button onclick="openAddKeyModal()" class="px-3 py-1.5 rounded-lg text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-medium flex items-center space-x-1">
+          <i class="fa-solid fa-plus text-[10px]"></i>
+          <span>Add Another Key</span>
+        </button>
+        <button onclick="closeKeyVaultModal()" class="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-darkCard">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION CORE -->
+  <script>
+    // ==========================================
+    // CONSTANTS & STATE
+    // ==========================================
+    const STORAGE_KEYS = {
+      VAULT: 'gemini_switcher_vault_keys',
+      ACTIVE_KEY_ID: 'gemini_switcher_active_key_id',
+      SELECTED_MODEL: 'gemini_switcher_selected_model',
+      CUSTOM_MODEL: 'gemini_switcher_custom_model',
+      SYSTEM_INSTRUCTION: 'gemini_switcher_system_instruction',
+      DRAFT_PROMPT: 'gemini_switcher_draft_prompt',
+      CHAT_HISTORY: 'gemini_switcher_chat_history',
+      VIEW_MODE: 'gemini_switcher_view_mode',
+      LATEST_CODE: 'gemini_switcher_latest_code'
+    };
+
+    const COOLDOWN_DURATION_MS = 60000;
+
+    let vault = [];
+    let activeKeyId = null;
+    let chatHistory = [];
+    let isRequestInProgress = false;
+    let currentViewMode = 'chat';
+    let currentExtractedCode = '';
+
+    const SYSTEM_PRESETS = {
+      web_developer: "You are an elite, modern front-end web architect and full-stack software engineer. When asked to create an application, component, page, or game, provide the complete, functional, single-page implementation including HTML, embedded Tailwind CSS (via CDN script https://cdn.tailwindcss.com), and vanilla JavaScript. Always deliver production-ready code with complete logic, beautiful styling, responsive layout, and zero missing placeholders.",
+      fullstack: "You are a senior principal architect. Output clean, fully architected code with thorough error handling and idiomatic patterns.",
+      concise: "You are an ultra-concise assistant. Deliver direct answers and code solutions without unnecessary preamble or explanations.",
+      tutor: "You are a friendly, encouraging coding tutor. Break down concepts step-by-step with clear mental models."
+    };
+
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+      loadVault();
+      loadSettings();
+      loadChatHistory();
+      setupEventListeners();
+      checkCooldowns();
+      setInterval(checkCooldowns, 5000);
+
+      const savedMode = localStorage.getItem(STORAGE_KEYS.VIEW_MODE);
+      if (savedMode) {
+        setViewMode(savedMode);
+      } else if (window.innerWidth >= 1024) {
+        setViewMode('split');
+      } else {
+        setViewMode('chat');
+      }
+
+      const savedCode = localStorage.getItem(STORAGE_KEYS.LATEST_CODE);
+      if (savedCode) {
+        updateExtractedCode(savedCode, false);
+      }
+    });
+
+    // ==========================================
+    // VIEW MODES & LIVE PREVIEW ENGINE
+    // ==========================================
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      localStorage.setItem(STORAGE_KEYS.VIEW_MODE, mode);
+
+      const chatPane = document.getElementById('chatPane');
+      const previewPane = document.getElementById('previewPane');
+      const codeView = document.getElementById('codeViewContainer');
+      const previewFrame = document.getElementById('livePreviewFrame');
+      const deviceSwitcher = document.getElementById('deviceSwitcher');
+      const previewPaneTitle = document.getElementById('previewPaneTitle');
+
+      ['chat', 'split', 'code', 'preview'].forEach(t => {
+        const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Btn');
+        if (btn) {
+          if (t === mode) {
+            btn.className = 'view-tab px-3 py-1 rounded-md text-white bg-blue-600 transition-all flex items-center space-x-1.5 shadow-sm';
+          } else {
+            btn.className = 'view-tab px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all flex items-center space-x-1.5';
+          }
+        }
+      });
+
+      if (mode === 'chat') {
+        chatPane.classList.remove('hidden');
+        previewPane.classList.add('hidden');
+      } else if (mode === 'split') {
+        chatPane.classList.remove('hidden');
+        previewPane.classList.remove('hidden');
+        codeView.classList.add('hidden');
+        previewFrame.classList.remove('hidden');
+        deviceSwitcher.classList.remove('hidden');
+        previewPaneTitle.textContent = 'Live Preview';
+      } else if (mode === 'preview') {
+        chatPane.classList.add('hidden');
+        previewPane.classList.remove('hidden');
+        codeView.classList.add('hidden');
+        previewFrame.classList.remove('hidden');
+        deviceSwitcher.classList.remove('hidden');
+        previewPaneTitle.textContent = 'Live Preview (Full Screen)';
+      } else if (mode === 'code') {
+        chatPane.classList.add('hidden');
+        previewPane.classList.remove('hidden');
+        codeView.classList.remove('hidden');
+        previewFrame.classList.add('hidden');
+        deviceSwitcher.classList.add('hidden');
+        previewPaneTitle.textContent = 'Code View';
+      }
+    }
+
+    function setPreviewSize(size) {
+      const frame = document.getElementById('livePreviewFrame');
+      const dBtn = document.getElementById('sizeDesktopBtn');
+      const tBtn = document.getElementById('sizeTabletBtn');
+      const mBtn = document.getElementById('sizeMobileBtn');
+
+      [dBtn, tBtn, mBtn].forEach(b => {
+        b.className = 'px-2 py-0.5 rounded text-slate-400 hover:text-white';
+      });
+
+      if (size === 'desktop') {
+        frame.style.width = '100%';
+        dBtn.className = 'px-2 py-0.5 rounded text-white bg-slate-700 font-medium';
+      } else if (size === 'tablet') {
+        frame.style.width = '768px';
+        tBtn.className = 'px-2 py-0.5 rounded text-white bg-slate-700 font-medium';
+      } else if (size === 'mobile') {
+        frame.style.width = '375px';
+        mBtn.className = 'px-2 py-0.5 rounded text-white bg-slate-700 font-medium';
+      }
+    }
+
+    function updateExtractedCode(code, autoSwitchToSplit = true) {
+      if (!code) return;
+      currentExtractedCode = code;
+      localStorage.setItem(STORAGE_KEYS.LATEST_CODE, code);
+
+      const frame = document.getElementById('livePreviewFrame');
+      if (frame) {
+        frame.srcdoc = code;
+      }
+
+      const codeBlock = document.getElementById('codeViewBlock');
+      const codeStats = document.getElementById('codeViewStats');
+      if (codeBlock) {
+        codeBlock.textContent = code;
+        hljs.highlightElement(codeBlock);
+      }
+      if (codeStats) {
+        const lines = code.split('\n').length;
+        codeStats.textContent = `Extracted Code (${lines} lines, ${(code.length / 1024).toFixed(1)} KB)`;
+      }
+
+      const dot = document.getElementById('previewIndicatorDot');
+      if (dot) dot.classList.remove('hidden');
+
+      if (autoSwitchToSplit && window.innerWidth >= 1024 && currentViewMode === 'chat') {
+        setViewMode('split');
+      }
+    }
+
+    function extractCodeFromText(text) {
+      if (!text) return '';
+
+      const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)```/i);
+      if (htmlBlockMatch && htmlBlockMatch[1].trim()) {
+        return htmlBlockMatch[1].trim();
+      }
+
+      const codeBlockMatch = text.match(/```(?:\w+)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch && (codeBlockMatch[1].includes('<!DOCTYPE') || codeBlockMatch[1].includes('<html') || codeBlockMatch[1].includes('<div'))) {
+        return codeBlockMatch[1].trim();
+      }
+
+      if (text.includes('<!DOCTYPE html>') || (text.includes('<html') && text.includes('</html>'))) {
+        const start = text.indexOf('<!DOCTYPE html>') !== -1 ? text.indexOf('<!DOCTYPE html>') : text.indexOf('<html');
+        const end = text.lastIndexOf('</html>');
+        if (start !== -1 && end !== -1) {
+          return text.substring(start, end + 7);
+        }
+      }
+
+      return '';
+    }
+
+    function refreshPreviewFrame() {
+      const frame = document.getElementById('livePreviewFrame');
+      if (frame && currentExtractedCode) {
+        frame.srcdoc = '';
+        setTimeout(() => { frame.srcdoc = currentExtractedCode; }, 100);
+      }
+    }
+
+    function openPreviewInNewTab() {
+      if (!currentExtractedCode) {
+        alert('No preview code available yet. Generate an app in the chat first!');
+        return;
+      }
+      const blob = new Blob([currentExtractedCode], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    }
+
+    // ==========================================
+    // EXPORT & DOWNLOAD (HTML / ZIP)
+    // ==========================================
+    function toggleDownloadMenu() {
+      const menu = document.getElementById('downloadMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('downloadMenu');
+      if (menu && !menu.contains(e.target) && !e.target.closest('button[onclick="toggleDownloadMenu()"]')) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    async function downloadCodeFile(format) {
+      toggleDownloadMenu();
+      if (!currentExtractedCode) {
+        alert('No code to download yet. Prompt the AI to generate an application first!');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+
+      if (format === 'html') {
+        const blob = new Blob([currentExtractedCode], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gemini-app-${timestamp}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (format === 'zip') {
+        if (typeof JSZip === 'undefined') {
+          alert('Downloading as index.html...');
+          downloadCodeFile('html');
+          return;
+        }
+
+        const zip = new JSZip();
+        zip.file("index.html", currentExtractedCode);
+        zip.file("README.md", `# Gemini Switcher AI — Generated App\n\nGenerated with Gemini Switcher AI by Tonmoy Mir Malot (https://github.com/mirmalot).\n\nOpen \`index.html\` in any web browser to run.`);
+
+        const content = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gemini-app-project-${timestamp}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function copyExtractedCode() {
+      if (!currentExtractedCode) {
+        alert('No code available to copy.');
+        return;
+      }
+      navigator.clipboard.writeText(currentExtractedCode).then(() => {
+        alert('Complete code copied to clipboard!');
+      });
+    }
+
+    // ==========================================
+    // KEY VAULT & 429 AUTO-ROTATION
+    // ==========================================
+    function loadVault() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEYS.VAULT);
+        vault = stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        vault = [];
+      }
+
+      activeKeyId = localStorage.getItem(STORAGE_KEYS.ACTIVE_KEY_ID);
+      if (!activeKeyId && vault.length > 0) {
+        activeKeyId = vault[0].id;
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_KEY_ID, activeKeyId);
+      }
+
+      renderVaultUI();
+    }
+
+    function saveVault() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.VAULT, JSON.stringify(vault));
+      } catch (e) {}
+      renderVaultUI();
+    }
+
+    function getActiveKey() {
+      if (!activeKeyId || vault.length === 0) return null;
+      let keyObj = vault.find(k => k.id === activeKeyId);
+      if (!keyObj && vault.length > 0) {
+        keyObj = vault[0];
+        activeKeyId = keyObj.id;
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_KEY_ID, activeKeyId);
+      }
+      return keyObj;
+    }
+
+    function maskKey(keyStr) {
+      if (!keyStr || keyStr.length < 8) return '••••••••';
+      return keyStr.slice(0, 6) + '...' + keyStr.slice(-4);
+    }
+
+    function renderVaultUI() {
+      const activeKey = getActiveKey();
+      const count = vault.length;
+
+      const headerKeyName = document.getElementById('headerActiveKeyName');
+      const headerCountBadge = document.getElementById('headerKeyCountBadge');
+      const vaultTotalCount = document.getElementById('vaultTotalCount');
+
+      if (headerKeyName) headerKeyName.textContent = activeKey ? activeKey.name : 'No Key';
+      if (headerCountBadge) headerCountBadge.textContent = count;
+      if (vaultTotalCount) vaultTotalCount.textContent = `(${count} key${count === 1 ? '' : 's'})`;
+
+      const sidebarList = document.getElementById('vaultKeyList');
+      const emptyState = document.getElementById('vaultEmptyState');
+
+      if (count === 0) {
+        if (sidebarList) sidebarList.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+      } else {
+        if (emptyState) emptyState.classList.add('hidden');
+        if (sidebarList) {
+          sidebarList.innerHTML = vault.map(k => {
+            const isActive = k.id === activeKeyId;
+            const isCooling = k.cooldownUntil && k.cooldownUntil > Date.now();
+            const secondsLeft = isCooling ? Math.ceil((k.cooldownUntil - Date.now()) / 1000) : 0;
+
+            return `
+              <div class="p-2.5 rounded-lg border transition-all ${isActive ? 'bg-cyan-950/40 border-cyan-500/50' : 'bg-darkCard/70 border-darkBorder hover:border-slate-600'}">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-1.5 overflow-hidden">
+                    <span class="w-2 h-2 rounded-full ${isCooling ? 'bg-amber-400' : 'bg-emerald-400'} shrink-0"></span>
+                    <span class="text-xs font-semibold text-slate-200 truncate cursor-pointer" onclick="setActiveKey('${k.id}')">${escapeHtml(k.name)}</span>
+                    ${isActive ? '<span class="text-[9px] bg-cyan-500/30 text-cyan-300 border border-cyan-400/30 px-1 rounded font-bold">ACTIVE</span>' : ''}
+                  </div>
+                  <div class="flex items-center space-x-1">
+                    ${!isActive ? `<button onclick="setActiveKey('${k.id}')" class="text-[10px] text-slate-400 hover:text-cyan-300 px-1 py-0.5 rounded hover:bg-slate-800">Use</button>` : ''}
+                    <button onclick="deleteKey('${k.id}')" class="text-slate-500 hover:text-red-400 p-0.5 rounded">
+                      <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px] text-slate-400 font-mono">
+                  <span>${maskKey(k.key)}</span>
+                  <div class="flex items-center space-x-2">
+                    <span title="Requests">req: ${k.requestCount || 0}</span>
+                    ${isCooling ? `<span class="text-amber-400 font-bold">⏳ ${secondsLeft}s</span>` : ((k.rateLimitCount || 0) > 0 ? `<span class="text-amber-400" title="429 Hits">429: ${k.rateLimitCount}</span>` : '')}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      renderModalVaultList();
+    }
+
+    function renderModalVaultList() {
+      const modalList = document.getElementById('modalVaultList');
+      if (!modalList) return;
+
+      if (vault.length === 0) {
+        modalList.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">No keys stored yet. Add one below!</div>`;
+        return;
+      }
+
+      modalList.innerHTML = vault.map((k, idx) => {
+        const isActive = k.id === activeKeyId;
+        const isCooling = k.cooldownUntil && k.cooldownUntil > Date.now();
+        const secondsLeft = isCooling ? Math.ceil((k.cooldownUntil - Date.now()) / 1000) : 0;
+
+        return `
+          <div class="p-3 rounded-xl border ${isActive ? 'bg-cyan-950/40 border-cyan-500' : 'bg-darkCard border-darkBorder'} space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-xs font-mono text-slate-400">#${idx + 1}</span>
+                <span class="text-xs font-bold text-slate-100">${escapeHtml(k.name)}</span>
+                ${isActive ? '<span class="text-[10px] bg-cyan-500 text-white font-bold px-1.5 py-0.5 rounded">ACTIVE ROTATION KEY</span>' : ''}
+                ${isCooling ? `<span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-mono">Cooldown ${secondsLeft}s</span>` : ''}
+              </div>
+              <div class="flex items-center space-x-1.5">
+                ${!isActive ? `<button onclick="setActiveKey('${k.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg">Make Active</button>` : ''}
+                <button onclick="testKeyHealth('${k.id}')" class="text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-900/30 px-2 py-1 rounded">Test</button>
+                <button onclick="deleteKey('${k.id}')" class="text-xs text-slate-500 hover:text-red-400 p-1 rounded"><i class="fa-solid fa-trash-can"></i></button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-slate-900/60 p-2 rounded-lg font-mono">
+              <div>
+                <span class="text-slate-500 block text-[9px]">API KEY</span>
+                <span class="text-slate-300">${maskKey(k.key)}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[9px]">REQUESTS</span>
+                <span class="text-slate-300">${k.requestCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[9px]">429 HITS</span>
+                <span class="${(k.rateLimitCount || 0) > 0 ? 'text-amber-400 font-bold' : 'text-slate-400'}">${k.rateLimitCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[9px]">STATUS</span>
+                <span class="${isCooling ? 'text-amber-400' : 'text-emerald-400'}">${isCooling ? 'Rate-Limited' : 'Ready'}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setActiveKey(id) {
+      activeKeyId = id;
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_KEY_ID, id);
+      renderVaultUI();
+    }
+
+    function deleteKey(id) {
+      if (!confirm('Remove this key from your vault?')) return;
+      vault = vault.filter(k => k.id !== id);
+      if (activeKeyId === id) {
+        activeKeyId = vault.length > 0 ? vault[0].id : null;
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_KEY_ID, activeKeyId || '');
+      }
+      saveVault();
+    }
+
+    function checkCooldowns() {
+      let changed = false;
+      const now = Date.now();
+      vault.forEach(k => {
+        if (k.cooldownUntil && k.cooldownUntil <= now) {
+          k.cooldownUntil = null;
+          k.status = 'ready';
+          changed = true;
+        }
+      });
+      if (changed) saveVault();
+    }
+
+    function getNextAvailableKey(excludeKeyId = null) {
+      if (vault.length === 0) return null;
+      const now = Date.now();
+      const available = vault.filter(k => k.id !== excludeKeyId && (!k.cooldownUntil || k.cooldownUntil <= now));
+      if (available.length > 0) {
+        available.sort((a, b) => (a.requestCount || 0) - (b.requestCount || 0));
+        return available[0];
+      }
+      const candidates = vault.filter(k => k.id !== excludeKeyId);
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => (a.cooldownUntil || 0) - (b.cooldownUntil || 0));
+        return candidates[0];
+      }
+      return vault[0];
+    }
+
+    function showRotationToast(exhaustedKeyName, nextKeyName, modelName) {
+      const toast = document.getElementById('rotationToast');
+      const details = document.getElementById('toastRotationDetails');
+      if (!toast || !details) return;
+
+      details.innerHTML = `Exhausted <strong>${escapeHtml(exhaustedKeyName)}</strong>.<br>Auto-switched to <strong>${escapeHtml(nextKeyName)}</strong> maintaining <strong>${modelName}</strong>.`;
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 5500);
+    }
+
+    // ==========================================
+    // GEMINI API CLIENT (DIRECT FETCH)
+    // ==========================================
+    async function executeGeminiRequest(messages, model, systemInstruction, retryAttempt = 0) {
+      let currentKeyObj = getActiveKey();
+      if (!currentKeyObj) {
+        throw new Error("No API Key in vault. Please add a Gemini API Key first.");
+      }
+
+      const contents = messages.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+      const bodyPayload = { contents };
+      if (systemInstruction && systemInstruction.trim()) {
+        bodyPayload.systemInstruction = {
+          parts: [{ text: systemInstruction.trim() }]
+        };
+      }
+
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(currentKeyObj.key.trim())}`;
+
+      currentKeyObj.requestCount = (currentKeyObj.requestCount || 0) + 1;
+      saveVault();
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload)
+      });
+
+      let isRateLimited = response.status === 429;
+      let errData = null;
+
+      if (!response.ok) {
+        errData = await response.json().catch(() => ({}));
+        const errMsg = (errData.error?.message || '').toLowerCase();
+        const errStatus = (errData.error?.status || '').toUpperCase();
+        if (errStatus === 'RESOURCE_EXHAUSTED' || errMsg.includes('quota') || errMsg.includes('rate limit') || errMsg.includes('resource exhausted') || errMsg.includes('too many requests')) {
+          isRateLimited = true;
+        }
+      }
+
+      // 429 & Quota Auto-Rotation
+      if (isRateLimited) {
+        console.warn(`[Auto-Rotate] Rate limit hit on key: ${currentKeyObj.name}`);
+        currentKeyObj.rateLimitCount = (currentKeyObj.rateLimitCount || 0) + 1;
+        currentKeyObj.cooldownUntil = Date.now() + COOLDOWN_DURATION_MS;
+        currentKeyObj.status = 'rate-limited';
+
+        const nextKeyObj = getNextAvailableKey(currentKeyObj.id);
+
+        if (nextKeyObj && nextKeyObj.id !== currentKeyObj.id && retryAttempt < vault.length) {
+          const oldName = currentKeyObj.name;
+          setActiveKey(nextKeyObj.id);
+          saveVault();
+
+          showRotationToast(oldName, nextKeyObj.name, model);
+          return await executeGeminiRequest(messages, model, systemInstruction, retryAttempt + 1);
+        } else {
+          saveVault();
+          throw new Error(`Rate limit hit across all keys. Please wait ${Math.ceil(COOLDOWN_DURATION_MS / 1000)}s or add a new key.`);
+        }
+      }
+
+      if (!response.ok) {
+        const errMsg = errData?.error?.message || `HTTP ${response.status} ${response.statusText}`;
+        throw new Error(errMsg);
+      }
+
+      const data = await response.json();
+      const candidate = data.candidates?.[0];
+      if (!candidate || !candidate.content?.parts?.[0]?.text) {
+        throw new Error("No text returned by Gemini model.");
+      }
+
+      return candidate.content.parts[0].text;
+    }
+
+    // ==========================================
+    // CHAT & CODE RENDERING
+    // ==========================================
+    function loadChatHistory() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEYS.CHAT_HISTORY);
+        chatHistory = stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        chatHistory = [];
+      }
+      renderChatUI();
+    }
+
+    function saveChatHistory() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.CHAT_HISTORY, JSON.stringify(chatHistory));
+      } catch (e) {}
+    }
+
+    function renderChatUI() {
+      const container = document.getElementById('chatMessages');
+      const welcome = document.getElementById('welcomeHero');
+      if (!container) return;
+
+      if (chatHistory.length === 0) {
+        if (welcome) welcome.classList.remove('hidden');
+        Array.from(container.children).forEach(child => {
+          if (child.id !== 'welcomeHero') child.remove();
+        });
+        updateTokenAndCharEstimator();
+        return;
+      }
+
+      if (welcome) welcome.classList.add('hidden');
+
+      Array.from(container.children).forEach(child => {
+        if (child.id !== 'welcomeHero') child.remove();
+      });
+
+      chatHistory.forEach((msg, idx) => {
+        appendMessageElement(msg.role, msg.content, msg.model, idx);
+      });
+
+      scrollToBottom();
+      updateTokenAndCharEstimator();
+    }
+
+    function appendMessageElement(role, content, modelUsed, msgIndex) {
+      const container = document.getElementById('chatMessages');
+      const welcome = document.getElementById('welcomeHero');
+      if (welcome) welcome.classList.add('hidden');
+
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex flex-col ${role === 'user' ? 'items-end' : 'items-start'} my-2 max-w-3xl ${role === 'user' ? 'ml-auto' : 'mr-auto'} w-full`;
+
+      const isUser = role === 'user';
+
+      if (isUser) {
+        wrapper.innerHTML = `
+          <div class="flex items-start space-x-2 justify-end max-w-[88%] sm:max-w-[80%]">
+            <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-xs sm:text-sm shadow-md whitespace-pre-wrap select-text leading-relaxed">
+              ${escapeHtml(content)}
+            </div>
+            <div class="w-6 h-6 rounded-full bg-blue-500/30 flex items-center justify-center text-[10px] text-blue-300 font-bold shrink-0 mt-0.5">U</div>
+          </div>
+        `;
+      } else {
+        const renderedHtml = formatMarkdownWithCodeBlocks(content);
+        wrapper.innerHTML = `
+          <div class="flex items-start space-x-2.5 max-w-[95%] sm:max-w-[92%] w-full">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shrink-0 shadow mt-0.5">
+              <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <div class="flex items-center space-x-2 mb-1 text-[11px] text-slate-400">
+                <span class="font-semibold text-slate-300">Gemini</span>
+                ${modelUsed ? `<span class="bg-darkCard px-1.5 py-0.5 rounded text-[10px] text-cyan-400 font-mono">${escapeHtml(modelUsed)}</span>` : ''}
+              </div>
+              <div class="bg-darkSurface border border-darkBorder rounded-2xl rounded-tl-sm p-4 text-xs sm:text-sm text-slate-200 shadow-md prose-chat select-text overflow-hidden">
+                ${renderedHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      container.appendChild(wrapper);
+
+      wrapper.querySelectorAll('.copy-code-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const codeEl = btn.closest('.code-container').querySelector('code');
+          if (codeEl) {
+            navigator.clipboard.writeText(codeEl.innerText).then(() => {
+              const origText = btn.innerHTML;
+              btn.innerHTML = `<span><i class="fa-solid fa-check text-emerald-400 mr-1"></i>Copied!</span>`;
+              setTimeout(() => { btn.innerHTML = origText; }, 2000);
+            });
+          }
+        });
+      });
+
+      wrapper.querySelectorAll('.preview-code-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const codeEl = btn.closest('.code-container').querySelector('code');
+          if (codeEl) {
+            updateExtractedCode(codeEl.innerText);
+            setViewMode('split');
+          }
+        });
+      });
+    }
+
+    function formatMarkdownWithCodeBlocks(rawMarkdown) {
+      if (!rawMarkdown) return '';
+
+      marked.setOptions({
+        gfm: true,
+        breaks: true,
+        highlight: function(code, lang) {
+          if (lang && hljs.getLanguage(lang)) {
+            try { return hljs.highlight(code, { language: lang }).value; } catch (__) {}
+          }
+          return hljs.highlightAuto(code).value;
+        }
+      });
+
+      const renderer = new marked.Renderer();
+      renderer.code = function(code, language) {
+        const validLang = language || 'text';
+        let highlighted = '';
+        try {
+          if (hljs.getLanguage(validLang)) {
+            highlighted = hljs.highlight(code, { language: validLang }).value;
+          } else {
+            highlighted = hljs.highlightAuto(code).value;
+          }
+        } catch (e) {
+          highlighted = escapeHtml(code);
+        }
+
+        const isHtmlApp = validLang.toLowerCase() === 'html' || code.includes('<!DOCTYPE') || code.includes('<html');
+
+        return `
+          <div class="code-container my-3 rounded-lg overflow-hidden border border-slate-700 bg-[#090d16]">
+            <div class="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-[11px] text-slate-400 font-mono">
+              <span class="font-semibold text-slate-300">${escapeHtml(validLang)}</span>
+              <div class="flex items-center space-x-1.5">
+                ${isHtmlApp ? `
+                  <button class="preview-code-btn flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30 transition-colors">
+                    <i class="fa-solid fa-play text-[9px]"></i>
+                    <span>Run in Preview</span>
+                  </button>
+                ` : ''}
+                <button class="copy-code-btn flex items-center space-x-1 hover:text-slate-200 transition-colors px-2 py-0.5 rounded hover:bg-slate-800">
+                  <i class="fa-solid fa-copy text-[10px]"></i>
+                  <span>Copy Code</span>
+                </button>
+              </div>
+            </div>
+            <pre class="p-3 text-xs overflow-x-auto"><code class="hljs language-${escapeHtml(validLang)}">${highlighted}</code></pre>
+          </div>
+        `;
+      };
+
+      return marked.parse(rawMarkdown, { renderer: renderer });
+    }
+
+    function scrollToBottom() {
+      const container = document.getElementById('chatMessages');
+      if (container) {
+        setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+      }
+    }
+
+    // ==========================================
+    // REAL-TIME TOKEN ESTIMATOR
+    // ==========================================
+    function updateTokenAndCharEstimator() {
+      const input = document.getElementById('promptInput');
+      const promptText = input ? input.value : '';
+      const promptChars = promptText.length;
+      const promptTokens = Math.ceil(promptChars / 4);
+
+      const sysInput = document.getElementById('systemInstructionInput');
+      const systemText = sysInput ? sysInput.value.trim() : '';
+      const systemChars = systemText.length;
+      const systemTokens = Math.ceil(systemChars / 4);
+
+      const historyTurns = chatHistory.length;
+      const historyChars = chatHistory.reduce((acc, msg) => acc + (msg.content ? msg.content.length : 0), 0);
+      const historyTokens = Math.ceil(historyChars / 4);
+
+      const totalChars = promptChars + systemChars + historyChars;
+      const totalTokens = Math.ceil(totalChars / 4);
+
+      const tokenLabel = document.getElementById('tokenEstimatorLabel');
+      const charLabel = document.getElementById('charCountLabel');
+      const clearBtn = document.getElementById('clearDraftBtn');
+
+      if (tokenLabel) {
+        tokenLabel.textContent = `~${totalTokens.toLocaleString()} ctx tokens`;
+        if (totalTokens > 32000) tokenLabel.className = 'text-amber-400 font-semibold tracking-tight';
+        else if (totalTokens > 8000) tokenLabel.className = 'text-blue-300 font-semibold tracking-tight';
+        else tokenLabel.className = 'text-cyan-300 font-semibold tracking-tight';
+      }
+
+      if (charLabel) {
+        charLabel.textContent = promptChars > 0 ? `~${promptTokens} prompt (${promptChars}c)` : `0 prompt chars`;
+      }
+
+      const ttPrompt = document.getElementById('tooltipPromptTokens');
+      const ttHist = document.getElementById('tooltipHistoryTokens');
+      const ttSys = document.getElementById('tooltipSystemTokens');
+      const ttTotal = document.getElementById('tooltipTotalTokens');
+
+      if (ttPrompt) ttPrompt.textContent = `~${promptTokens.toLocaleString()} tokens (${promptChars} chars)`;
+      if (ttHist) ttHist.textContent = `~${historyTokens.toLocaleString()} tokens (${historyTurns} msgs)`;
+      if (ttSys) ttSys.textContent = `~${systemTokens.toLocaleString()} tokens (${systemChars} chars)`;
+      if (ttTotal) ttTotal.textContent = `~${totalTokens.toLocaleString()} tokens`;
+
+      if (clearBtn) clearBtn.classList.toggle('hidden', promptChars === 0);
+    }
+
+    const updateCharCount = updateTokenAndCharEstimator;
+
+    // ==========================================
+    // SEND PROMPT ACTION
+    // ==========================================
+    async function handleSendPrompt() {
+      if (isRequestInProgress) return;
+
+      const input = document.getElementById('promptInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (vault.length === 0) {
+        openAddKeyModal();
+        alert('Please add at least one Gemini API Key to your Vault first.');
+        return;
+      }
+
+      const model = getSelectedModel();
+      const systemInstruction = document.getElementById('systemInstructionInput').value;
+
+      chatHistory.push({
+        role: 'user',
+        content: text,
+        timestamp: Date.now()
+      });
+      saveChatHistory();
+
+      input.value = '';
+      clearDraftPrompt();
+      renderChatUI();
+      setRequestLoading(true);
+
+      try {
+        const replyText = await executeGeminiRequest(chatHistory, model, systemInstruction);
+
+        chatHistory.push({
+          role: 'assistant',
+          content: replyText,
+          model: model,
+          timestamp: Date.now()
+        });
+        saveChatHistory();
+        renderChatUI();
+
+        const extracted = extractCodeFromText(replyText);
+        if (extracted) {
+          updateExtractedCode(extracted, true);
+        }
+
+      } catch (err) {
+        chatHistory.push({
+          role: 'assistant',
+          content: `⚠️ **Request Error:** ${err.message}\n\n*Check your API key validity or add more keys to the Vault for auto-rotation.*`,
+          model: model,
+          timestamp: Date.now()
+        });
+        saveChatHistory();
+        renderChatUI();
+      } finally {
+        setRequestLoading(false);
+      }
+    }
+
+    function setRequestLoading(loading) {
+      isRequestInProgress = loading;
+      const sendBtn = document.getElementById('sendBtn');
+      const sendIcon = document.getElementById('sendIcon');
+      const spinner = document.getElementById('loadingSpinner');
+
+      if (sendBtn) sendBtn.disabled = loading;
+      if (sendIcon) sendIcon.classList.toggle('hidden', loading);
+      if (spinner) spinner.classList.toggle('hidden', !loading);
+    }
+
+    // ==========================================
+    // EVENT LISTENERS & SETTINGS
+    // ==========================================
+    function getSelectedModel() {
+      const selector = document.getElementById('modelSelector');
+      if (selector.value === 'custom') {
+        const customVal = document.getElementById('customModelInput').value.trim();
+        return customVal || 'gemini-2.0-flash';
+      }
+      return selector.value;
+    }
+
+    function loadSettings() {
+      const savedModel = localStorage.getItem(STORAGE_KEYS.SELECTED_MODEL) || 'gemini-2.0-flash';
+      const selector = document.getElementById('modelSelector');
+      const customInput = document.getElementById('customModelInput');
+      const customContainer = document.getElementById('customModelContainer');
+
+      if (['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'].includes(savedModel)) {
+        selector.value = savedModel;
+        customContainer.classList.add('hidden');
+      } else {
+        selector.value = 'custom';
+        customInput.value = savedModel;
+        customContainer.classList.remove('hidden');
+      }
+      updateActiveModelLabel();
+
+      const savedSys = localStorage.getItem(STORAGE_KEYS.SYSTEM_INSTRUCTION);
+      if (savedSys) {
+        document.getElementById('systemInstructionInput').value = savedSys;
+      } else {
+        document.getElementById('systemInstructionInput').value = SYSTEM_PRESETS.web_developer;
+      }
+
+      const savedDraft = localStorage.getItem(STORAGE_KEYS.DRAFT_PROMPT);
+      if (savedDraft) {
+        const promptInput = document.getElementById('promptInput');
+        promptInput.value = savedDraft;
+        setDraftStatus('Draft restored');
+      }
+      updateTokenAndCharEstimator();
+    }
+
+    function setupEventListeners() {
+      const promptInput = document.getElementById('promptInput');
+      promptInput.addEventListener('input', () => {
+        const val = promptInput.value;
+        if (val) {
+          localStorage.setItem(STORAGE_KEYS.DRAFT_PROMPT, val);
+          setDraftStatus('Auto-saved');
+        } else {
+          clearDraftPrompt();
+        }
+        updateTokenAndCharEstimator();
+      });
+
+      promptInput.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          handleSendPrompt();
+        }
+      });
+
+      const modelSelector = document.getElementById('modelSelector');
+      modelSelector.addEventListener('change', () => {
+        const customContainer = document.getElementById('customModelContainer');
+        if (modelSelector.value === 'custom') {
+          customContainer.classList.remove('hidden');
+        } else {
+          customContainer.classList.add('hidden');
+          localStorage.setItem(STORAGE_KEYS.SELECTED_MODEL, modelSelector.value);
+        }
+        updateActiveModelLabel();
+      });
+
+      const customModelInput = document.getElementById('customModelInput');
+      customModelInput.addEventListener('input', () => {
+        localStorage.setItem(STORAGE_KEYS.SELECTED_MODEL, customModelInput.value.trim());
+        updateActiveModelLabel();
+      });
+
+      const sysInput = document.getElementById('systemInstructionInput');
+      sysInput.addEventListener('input', () => {
+        localStorage.setItem(STORAGE_KEYS.SYSTEM_INSTRUCTION, sysInput.value);
+        updateTokenAndCharEstimator();
+      });
+
+      const presetSelect = document.getElementById('presetSystemPromptSelect');
+      presetSelect.addEventListener('change', () => {
+        const val = presetSelect.value;
+        if (val && SYSTEM_PRESETS[val]) {
+          sysInput.value = SYSTEM_PRESETS[val];
+          localStorage.setItem(STORAGE_KEYS.SYSTEM_INSTRUCTION, sysInput.value);
+          updateTokenAndCharEstimator();
+        }
+      });
+
+      const sidebarToggle = document.getElementById('sidebarToggleBtn');
+      const sidebarClose = document.getElementById('sidebarCloseBtn');
+      const sidebarOverlay = document.getElementById('sidebarOverlay');
+      const sidebar = document.getElementById('sidebar');
+
+      const toggleSidebar = (open) => {
+        if (open) {
+          sidebar.classList.remove('-translate-x-full');
+          sidebarOverlay.classList.remove('hidden');
+        } else {
+          sidebar.classList.add('-translate-x-full');
+          sidebarOverlay.classList.add('hidden');
+        }
+      };
+
+      if (sidebarToggle) sidebarToggle.addEventListener('click', () => toggleSidebar(true));
+      if (sidebarClose) sidebarClose.addEventListener('click', () => toggleSidebar(false));
+      if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
+    }
+
+    function updateActiveModelLabel() {
+      const label = document.getElementById('activeModelLabel');
+      if (label) label.textContent = getSelectedModel();
+    }
+
+    function setDraftStatus(text) {
+      const indicator = document.getElementById('draftIndicator');
+      if (indicator) {
+        indicator.innerHTML = `
+          <i class="fa-solid fa-check text-emerald-400 text-xs"></i>
+          <span class="text-slate-400">${escapeHtml(text)}</span>
+        `;
+      }
+    }
+
+    function clearDraftPrompt() {
+      const input = document.getElementById('promptInput');
+      input.value = '';
+      localStorage.removeItem(STORAGE_KEYS.DRAFT_PROMPT);
+      updateTokenAndCharEstimator();
+      const indicator = document.getElementById('draftIndicator');
+      if (indicator) indicator.innerHTML = `<span class="text-slate-600">No draft</span>`;
+    }
+
+    function clearChatConfirm() {
+      if (chatHistory.length === 0) return;
+      if (confirm('Clear entire conversation history?')) {
+        chatHistory = [];
+        saveChatHistory();
+        renderChatUI();
+        updateTokenAndCharEstimator();
+      }
+    }
+
+    function promptTemplate(type) {
+      const input = document.getElementById('promptInput');
+      if (type === 'pomodoro') {
+        input.value = "Create a complete, single-page Cyberpunk Pomodoro Timer application with HTML5 Canvas animated progress ring, neon glowing buttons, pause/reset, task list, and pleasant web audio beep synthesizer sound effects.";
+      } else if (type === 'solar') {
+        input.value = "Build an interactive 3D-styled 2D Canvas Solar System simulator with orbiting planets (Mercury, Venus, Earth, Mars, Jupiter), speed multiplier slider, pause button, and planet info tooltips on click.";
+      } else if (type === 'retro_pong') {
+        input.value = "Create a fully functional Retro Arcade Pong Game in HTML Canvas with paddle controls (keyboard Arrow keys & Touch drag), intelligent AI opponent, score counter, sound effects via Web Audio API, and particle explosion on bounce.";
+      }
+      updateTokenAndCharEstimator();
+      setDraftStatus('Auto-saved');
+      input.focus();
+    }
+
+    // ==========================================
+    // MODAL DIALOGS
+    // ==========================================
+    function openAboutModal() {
+      document.getElementById('aboutModal').classList.remove('hidden');
+    }
+
+    function closeAboutModal() {
+      document.getElementById('aboutModal').classList.add('hidden');
+    }
+
+    function openAddKeyModal() {
+      document.getElementById('modalKeyName').value = `Key ${vault.length + 1}`;
+      document.getElementById('modalKeyValue').value = '';
+      document.getElementById('addKeyModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('modalKeyValue').focus(), 100);
+    }
+
+    function closeAddKeyModal() {
+      document.getElementById('addKeyModal').classList.add('hidden');
+    }
+
+    function toggleModalKeyVisibility() {
+      const input = document.getElementById('modalKeyValue');
+      const icon = document.getElementById('eyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash text-xs';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye text-xs';
+      }
+    }
+
+    function saveNewKey() {
+      const name = document.getElementById('modalKeyName').value.trim() || `Key ${vault.length + 1}`;
+      const rawKey = document.getElementById('modalKeyValue').value.trim();
+
+      if (!rawKey) {
+        alert('Please enter a valid Gemini API Key.');
+        return;
+      }
+
+      const newKeyObj = {
+        id: 'key_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        name: name,
+        key: rawKey,
+        requestCount: 0,
+        rateLimitCount: 0,
+        status: 'ready',
+        cooldownUntil: null,
+        addedAt: Date.now()
+      };
+
+      vault.push(newKeyObj);
+
+      if (vault.length === 1 || !activeKeyId) {
+        activeKeyId = newKeyObj.id;
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_KEY_ID, activeKeyId);
+      }
+
+      saveVault();
+      closeAddKeyModal();
+    }
+
+    function openKeyVaultModal() {
+      renderModalVaultList();
+      document.getElementById('keyVaultModal').classList.remove('hidden');
+    }
+
+    function closeKeyVaultModal() {
+      document.getElementById('keyVaultModal').classList.add('hidden');
+    }
+
+    async function testKeyHealth(id) {
+      const keyObj = vault.find(k => k.id === id);
+      if (!keyObj) return;
+
+      alert(`Pinging Google Gemini endpoint with "${keyObj.name}"...`);
+
+      try {
+        const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(keyObj.key)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: 'Ping' }] }]
+          })
+        });
+
+        if (testRes.ok) {
+          alert(`✅ Valid! Key "${keyObj.name}" is responding.`);
+        } else if (testRes.status === 429) {
+          alert(`⚠️ Quota Exhausted (429)! Key "${keyObj.name}" is rate-limited.`);
+        } else {
+          alert(`❌ Key returned HTTP ${testRes.status}. Check key permissions.`);
+        }
+      } catch (e) {
+        alert(`❌ Network failure: ${e.message}`);
+      }
+    }
+
+    function exportVaultData() {
+      const exportObj = {
+        app: 'Gemini Switcher AI',
+        developer: 'Tonmoy Mir Malot',
+        github: 'https://github.com/mirmalot',
+        exportedAt: new Date().toISOString(),
+        keys: vault.map(k => ({ name: k.name, key: k.key })),
+        systemInstruction: localStorage.getItem(STORAGE_KEYS.SYSTEM_INSTRUCTION) || '',
+        model: getSelectedModel()
+      };
+
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gemini-switcher-vault-backup-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
