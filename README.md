@@ -87,9 +87,12 @@ If this project helps you bypass rate limits and build apps faster, please consi
 - **Key Health Check**: One-click ping to test key validity before running prompts.
 - **Zero-Drop Failover**: Upon hitting 429 or `RESOURCE_EXHAUSTED`, the active key is placed on cooldown and the exact prompt is retried seamlessly with the next valid key.
 
-### 🎯 4. Model Stickiness & Context Continuity
-- **Model Support**: `gemini-2.0-flash`, `gemini-2.5-flash`, `gemini-1.5-pro`, `gemini-1.5-flash`, and custom model IDs.
-- **Strict Stickiness**: The target model and full conversation context stay locked across all rotation events.
+### 🎯 4. Dynamic Model Discovery & Capabilities Registry
+- **Live `models.list` Endpoint Integration**: Fetches real-time available models directly from the official Gemini API for the active API key—never rely on stale hardcoded lists.
+- **Intelligent Capability Filtering**: Automatically detects `supportedGenerationMethods` to filter models into Chat-ready models (`generateContent`) while classifying specialized embedding, audio, and prediction models.
+- **Model Diagnostics & Verification Suite**: One-click connectivity testing for any model or full automated testing suite across all chat models with latency telemetry (ms) and clear error explanations for quota, permission, and deprecated models.
+- **Strict Model Continuity**: Target models and conversation context remain strictly preserved across auto-rotation events on 429 errors.
+- **Automatic Auto-Recovery**: Models that do not support system personas automatically retry without them instead of failing requests.
 
 ### ⚡ 5. Real-Time Token Estimator
 - **Live Token Estimation**: Real-time calculation based on the industry standard ~4 characters per token heuristic.

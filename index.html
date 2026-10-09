@@ -210,28 +210,72 @@
 
       <div class="flex-1 overflow-y-auto p-4 space-y-4">
 
-        <!-- MODEL CONTINUITY SELECTOR -->
-        <div>
-          <div class="flex items-center justify-between mb-1.5">
+        <!-- DYNAMIC MODEL SELECTOR & CAPABILITIES -->
+        <div class="bg-darkCard/40 border border-darkBorder/70 rounded-xl p-3 space-y-2.5">
+          <div class="flex items-center justify-between">
             <label class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
               <span>Target Model</span>
-              <span class="text-[9px] text-cyan-400 font-normal">(Preserved on 429)</span>
+              <span class="text-[9px] text-cyan-400 font-normal">(Auto-Rotates on 429)</span>
             </label>
-            <span class="text-[10px] text-slate-400 font-mono" id="modelTokensBadge">Gemini API</span>
+            <div class="flex items-center space-x-1.5">
+              <span id="modelsStatusBadge" class="text-[10px] text-slate-400 font-mono">Dynamic API</span>
+              <button id="refreshModelsBtn" onclick="fetchGeminiModels(true)" title="Fetch latest models from Gemini API" class="text-slate-400 hover:text-cyan-300 p-0.5 rounded transition">
+                <i class="fa-solid fa-arrows-rotate text-xs" id="refreshModelsIcon"></i>
+              </button>
+            </div>
           </div>
-          <select id="modelSelector" class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
-            <option value="gemini-2.5-flash">gemini-2.5-flash (Fast & Multimodal)</option>
-            <option value="gemini-2.0-flash" selected>gemini-2.0-flash (Next-Gen Flash)</option>
-            <option value="gemini-1.5-pro">gemini-1.5-pro (Deep Coding & Logic)</option>
-            <option value="gemini-1.5-flash">gemini-1.5-flash (High Speed)</option>
-            <option value="custom">Custom Model ID...</option>
-          </select>
-          <div id="customModelContainer" class="mt-2 hidden">
-            <input type="text" id="customModelInput" placeholder="e.g. gemini-1.5-flash-8b" class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+
+          <div class="relative">
+            <select id="modelSelector" class="w-full bg-darkCard border border-darkBorder rounded-lg px-2.5 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+              <option value="gemini-2.5-flash" selected>gemini-2.5-flash (Fast & Multimodal)</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash (Next-Gen Flash)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Coding & Logic)</option>
+              <option value="gemini-1.5-flash">gemini-1.5-flash (High Speed)</option>
+              <option value="custom">Custom Model ID...</option>
+            </select>
           </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            Model stickiness guarantees zero downgrade during key rotation.
-          </p>
+
+          <div id="customModelContainer" class="hidden">
+            <input type="text" id="customModelInput" placeholder="e.g. gemini-2.5-pro" class="w-full bg-darkCard border border-darkBorder rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono">
+          </div>
+
+          <!-- ACTIVE MODEL CAPABILITIES & VERIFICATION CARD -->
+          <div id="activeModelCard" class="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 text-[11px] space-y-1.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-1.5 overflow-hidden">
+                <i class="fa-solid fa-circle-nodes text-cyan-400 text-xs shrink-0"></i>
+                <span id="activeModelDisplayName" class="font-bold text-slate-200 truncate">Gemini 2.5 Flash</span>
+              </div>
+              <span id="modelVerificationBadge" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono shrink-0">
+                <i class="fa-regular fa-circle-question mr-0.5"></i>Untested
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-1 text-[10px] text-slate-400 font-mono">
+              <div>In: <span id="modelInputTokensLabel" class="text-slate-300">1.05M</span></div>
+              <div>Out: <span id="modelOutputTokensLabel" class="text-slate-300">8.19K</span></div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1.5 border-t border-slate-800 text-[10px]">
+              <button id="verifyModelBtn" onclick="verifyActiveModel()" class="text-cyan-400 hover:text-cyan-300 flex items-center space-x-1 font-medium hover:underline">
+                <i class="fa-solid fa-bolt text-[9px]"></i>
+                <span>Test Connectivity</span>
+              </button>
+              <button onclick="openModelsMatrixModal()" class="text-slate-400 hover:text-slate-200 flex items-center space-x-1 hover:underline">
+                <i class="fa-solid fa-table-list text-[9px]"></i>
+                <span>All Models (<span id="sidebarModelCount">...</span>)</span>
+              </button>
+            </div>
+
+            <!-- Error banner if active model failed test -->
+            <div id="modelErrorBanner" class="hidden text-[10px] bg-rose-950/60 border border-rose-500/30 text-rose-300 p-2 rounded space-y-1">
+              <div class="flex items-start space-x-1.5 font-medium">
+                <i class="fa-solid fa-triangle-exclamation text-rose-400 mt-0.5 text-xs"></i>
+                <span id="modelErrorTitle">Connectivity Error</span>
+              </div>
+              <p id="modelErrorDesc" class="text-[9px] text-rose-300/80 leading-tight"></p>
+            </div>
+          </div>
         </div>
 
         <!-- SYSTEM INSTRUCTION FIELD -->
@@ -641,6 +685,63 @@
     </div>
   </div>
 
+  <!-- MODAL: GEMINI MODELS DISCOVERY & CAPABILITIES MATRIX -->
+  <div id="modelsMatrixModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden px-4">
+    <div class="bg-darkSurface border border-darkBorder rounded-2xl w-full max-w-3xl p-5 shadow-2xl max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-darkBorder">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center">
+            <i class="fa-solid fa-microchip text-base"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+              <span>Gemini Model Registry & Diagnostics</span>
+              <span id="matrixModelCountBadge" class="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono">Discovered via models.list</span>
+            </h3>
+            <p class="text-[11px] text-slate-400">Live models fetched directly from the official Gemini API for your active key.</p>
+          </div>
+        </div>
+        <button onclick="closeModelsMatrixModal()" class="text-slate-400 hover:text-white p-1 rounded">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Controls & Filter Tabs -->
+      <div class="py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-darkBorder">
+        <div class="flex items-center space-x-1.5 text-xs">
+          <button id="filterModelsAllBtn" onclick="filterModelsMatrix('all')" class="px-2.5 py-1 rounded-md bg-cyan-600 text-white font-medium">All Models</button>
+          <button id="filterModelsChatBtn" onclick="filterModelsMatrix('chat')" class="px-2.5 py-1 rounded-md bg-darkCard text-slate-300 hover:text-white border border-darkBorder font-medium">Chat & Generation (<span id="chatModelsCount">0</span>)</button>
+          <button id="filterModelsSpecializedBtn" onclick="filterModelsMatrix('specialized')" class="px-2.5 py-1 rounded-md bg-darkCard text-slate-300 hover:text-white border border-darkBorder font-medium">Specialized / Non-Chat (<span id="specializedModelsCount">0</span>)</button>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="testAllChatModels()" id="testAllModelsBtn" class="text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-md transition flex items-center space-x-1.5 font-medium">
+            <i class="fa-solid fa-vial-circle-check"></i>
+            <span>Test All Chat Models</span>
+          </button>
+          <button onclick="fetchGeminiModels(true)" class="text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-2.5 py-1 rounded-md transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span>Refresh API</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Models List / Table -->
+      <div id="modelsMatrixContainer" class="flex-1 overflow-y-auto py-3 space-y-2">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Error Diagnostics Legend & Footer -->
+      <div class="pt-3 border-t border-darkBorder text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center space-x-3 text-[10px] font-mono">
+          <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span><span>200 Verified</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span><span>429 Quota Exceeded</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span><span>404 Not Found / 403 Forbidden</span></span>
+        </div>
+        <button onclick="closeModelsMatrixModal()" class="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-darkCard">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- JAVASCRIPT APPLICATION CORE -->
   <script>
     // ==========================================
@@ -651,6 +752,8 @@
       ACTIVE_KEY_ID: 'gemini_switcher_active_key_id',
       SELECTED_MODEL: 'gemini_switcher_selected_model',
       CUSTOM_MODEL: 'gemini_switcher_custom_model',
+      CACHED_MODELS: 'gemini_switcher_cached_models',
+      VERIFIED_MODELS: 'gemini_switcher_verified_models',
       SYSTEM_INSTRUCTION: 'gemini_switcher_system_instruction',
       DRAFT_PROMPT: 'gemini_switcher_draft_prompt',
       CHAT_HISTORY: 'gemini_switcher_chat_history',
@@ -666,6 +769,64 @@
     let isRequestInProgress = false;
     let currentViewMode = 'chat';
     let currentExtractedCode = '';
+
+    // Model Registry & Capabilities State
+    let discoveredModels = [];
+    let currentMatrixFilter = 'all';
+    let isTestingAllModels = false;
+
+    const FALLBACK_CHAT_MODELS = [
+      {
+        name: 'models/gemini-2.5-flash',
+        displayName: 'Gemini 2.5 Flash',
+        description: 'Next-gen lightning fast multimodal model for chat, coding, and reasoning.',
+        inputTokenLimit: 1048576,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent', 'countTokens', 'createCachedContent'],
+        temperature: 1.0,
+        topP: 0.95
+      },
+      {
+        name: 'models/gemini-2.0-flash',
+        displayName: 'Gemini 2.0 Flash',
+        description: 'Next-generation speed and multimodal performance for diverse tasks.',
+        inputTokenLimit: 1048576,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent', 'countTokens', 'createCachedContent'],
+        temperature: 1.0,
+        topP: 0.95
+      },
+      {
+        name: 'models/gemini-2.5-pro',
+        displayName: 'Gemini 2.5 Pro',
+        description: 'Advanced reasoning, complex architecture, math, and STEM reasoning.',
+        inputTokenLimit: 2097152,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent', 'countTokens', 'createCachedContent'],
+        temperature: 1.0,
+        topP: 0.95
+      },
+      {
+        name: 'models/gemini-1.5-flash',
+        displayName: 'Gemini 1.5 Flash',
+        description: 'High-speed multimodal lightweight model.',
+        inputTokenLimit: 1048576,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent', 'countTokens', 'createCachedContent'],
+        temperature: 1.0,
+        topP: 0.95
+      },
+      {
+        name: 'models/gemini-1.5-pro',
+        displayName: 'Gemini 1.5 Pro',
+        description: 'Mid-tier deep context analysis and programming model.',
+        inputTokenLimit: 2097152,
+        outputTokenLimit: 8192,
+        supportedGenerationMethods: ['generateContent', 'countTokens', 'createCachedContent'],
+        temperature: 1.0,
+        topP: 0.95
+      }
+    ];
 
     const SYSTEM_PRESETS = {
       web_developer: "You are an elite, modern front-end web architect and full-stack software engineer. When asked to create an application, component, page, or game, provide the complete, functional, single-page implementation including HTML, embedded Tailwind CSS (via CDN script https://cdn.tailwindcss.com), and vanilla JavaScript. Always deliver production-ready code with complete logic, beautiful styling, responsive layout, and zero missing placeholders.",
@@ -684,6 +845,7 @@
       setupEventListeners();
       checkCooldowns();
       setInterval(checkCooldowns, 5000);
+      fetchGeminiModels();
 
       const savedMode = localStorage.getItem(STORAGE_KEYS.VIEW_MODE);
       if (savedMode) {
@@ -1065,6 +1227,7 @@
       activeKeyId = id;
       localStorage.setItem(STORAGE_KEYS.ACTIVE_KEY_ID, id);
       renderVaultUI();
+      fetchGeminiModels(true);
     }
 
     function deleteKey(id) {
@@ -1130,6 +1293,8 @@
         throw new Error("No API Key in vault. Please add a Gemini API Key first.");
       }
 
+      const cleanId = cleanModelName(model);
+
       const contents = messages.map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }]
@@ -1142,7 +1307,7 @@
         };
       }
 
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(currentKeyObj.key.trim())}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cleanId)}:generateContent?key=${encodeURIComponent(currentKeyObj.key.trim())}`;
 
       currentKeyObj.requestCount = (currentKeyObj.requestCount || 0) + 1;
       saveVault();
@@ -1163,11 +1328,19 @@
         if (errStatus === 'RESOURCE_EXHAUSTED' || errMsg.includes('quota') || errMsg.includes('rate limit') || errMsg.includes('resource exhausted') || errMsg.includes('too many requests')) {
           isRateLimited = true;
         }
+
+        // Automatic retry if model rejects system instruction with HTTP 400
+        if (response.status === 400 && systemInstruction) {
+          if (errMsg.includes('system_instruction') || errMsg.includes('systeminstruction')) {
+            console.warn(`[Auto-Recovery] Model ${cleanId} rejected system instruction. Retrying without it...`);
+            return await executeGeminiRequest(messages, model, null, retryAttempt);
+          }
+        }
       }
 
       // 429 & Quota Auto-Rotation
       if (isRateLimited) {
-        console.warn(`[Auto-Rotate] Rate limit hit on key: ${currentKeyObj.name}`);
+        console.warn(`[Auto-Rotate] Rate limit hit on key: ${currentKeyObj.name} for model: ${cleanId}`);
         currentKeyObj.rateLimitCount = (currentKeyObj.rateLimitCount || 0) + 1;
         currentKeyObj.cooldownUntil = Date.now() + COOLDOWN_DURATION_MS;
         currentKeyObj.status = 'rate-limited';
@@ -1179,26 +1352,38 @@
           setActiveKey(nextKeyObj.id);
           saveVault();
 
-          showRotationToast(oldName, nextKeyObj.name, model);
+          showRotationToast(oldName, nextKeyObj.name, cleanId);
           return await executeGeminiRequest(messages, model, systemInstruction, retryAttempt + 1);
         } else {
           saveVault();
-          throw new Error(`Rate limit hit across all keys. Please wait ${Math.ceil(COOLDOWN_DURATION_MS / 1000)}s or add a new key.`);
+          throw new Error(`Rate limit exceeded across all available keys for ${cleanId}. Please wait ${Math.ceil(COOLDOWN_DURATION_MS / 1000)}s or add another API key.`);
         }
       }
 
       if (!response.ok) {
-        const errMsg = errData?.error?.message || `HTTP ${response.status} ${response.statusText}`;
-        throw new Error(errMsg);
+        const parsed = parseGeminiError(response.status, errData, cleanId);
+        throw new Error(`${parsed.summary} ${parsed.detail}`);
       }
 
       const data = await response.json();
       const candidate = data.candidates?.[0];
-      if (!candidate || !candidate.content?.parts?.[0]?.text) {
-        throw new Error("No text returned by Gemini model.");
+      if (!candidate || !candidate.content?.parts) {
+        if (data.promptFeedback?.blockReason) {
+          throw new Error(`Response blocked by Gemini safety filters: ${data.promptFeedback.blockReason}`);
+        }
+        throw new Error("No response text returned by Gemini model.");
       }
 
-      return candidate.content.parts[0].text;
+      const textOutput = candidate.content.parts
+        .filter(p => typeof p.text === 'string')
+        .map(p => p.text)
+        .join('');
+
+      if (!textOutput) {
+        throw new Error("Gemini returned empty text output.");
+      }
+
+      return textOutput;
     }
 
     // ==========================================
@@ -1502,31 +1687,652 @@
     }
 
     // ==========================================
+    // GEMINI DYNAMIC MODEL REGISTRY & DIAGNOSTICS
+    // ==========================================
+    function cleanModelName(name) {
+      if (!name) return 'gemini-2.5-flash';
+      return name.replace(/^models\//, '').trim();
+    }
+
+    function formatTokenCount(num) {
+      if (!num || isNaN(num)) return 'N/A';
+      if (num >= 1000000) return (num / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      return num.toLocaleString();
+    }
+
+    function getCachedModels() {
+      try {
+        const item = localStorage.getItem(STORAGE_KEYS.CACHED_MODELS);
+        return item ? JSON.parse(item) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveCachedModels(keyId, models) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.CACHED_MODELS, JSON.stringify({
+          keyId: keyId,
+          timestamp: Date.now(),
+          models: models
+        }));
+      } catch (e) {}
+    }
+
+    function getVerificationCache() {
+      try {
+        const item = localStorage.getItem(STORAGE_KEYS.VERIFIED_MODELS);
+        return item ? JSON.parse(item) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveVerificationCache(cache) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.VERIFIED_MODELS, JSON.stringify(cache));
+      } catch (e) {}
+    }
+
+    function parseGeminiError(statusCode, errJson, modelId) {
+      const serverMsg = errJson?.error?.message || '';
+      const statusStr = errJson?.error?.status || '';
+
+      if (statusCode === 400) {
+        if (serverMsg.includes('system_instruction') || serverMsg.includes('systemInstruction')) {
+          return {
+            code: 400,
+            type: 'UNSUPPORTED_SYSTEM_INSTRUCTION',
+            summary: `System instructions not supported by ${modelId}.`,
+            detail: `The model rejected the system instruction. Retry without a system persona.`
+          };
+        }
+        return {
+          code: 400,
+          type: 'BAD_REQUEST',
+          summary: `Invalid request for model ${modelId}.`,
+          detail: serverMsg || 'Parameters or generation configuration unsupported by this model.'
+        };
+      }
+
+      if (statusCode === 401 || statusCode === 403) {
+        return {
+          code: statusCode,
+          type: 'PERMISSION_DENIED',
+          summary: `Permission denied (${statusCode}).`,
+          detail: serverMsg || `API key is invalid or lacks access to ${modelId}. Verify key in Google AI Studio.`
+        };
+      }
+
+      if (statusCode === 404) {
+        return {
+          code: 404,
+          type: 'MODEL_NOT_FOUND',
+          summary: `Model ${modelId} not found (404).`,
+          detail: `This model ID does not exist, has been deprecated, or is not available for this key.`
+        };
+      }
+
+      if (statusCode === 429 || statusStr === 'RESOURCE_EXHAUSTED' || serverMsg.toLowerCase().includes('quota') || serverMsg.toLowerCase().includes('rate limit')) {
+        return {
+          code: 429,
+          type: 'QUOTA_EXHAUSTED',
+          summary: `Rate limit / Quota exceeded (429).`,
+          detail: `Daily request quota or per-minute rate limit hit for ${modelId}. Key will auto-rotate.`
+        };
+      }
+
+      if (statusCode >= 500) {
+        return {
+          code: statusCode,
+          type: 'SERVER_ERROR',
+          summary: `Google AI service error (${statusCode}).`,
+          detail: serverMsg || `Gemini backend is temporarily experiencing issues. Please try again.`
+        };
+      }
+
+      return {
+        code: statusCode,
+        type: 'UNKNOWN_ERROR',
+        summary: `API error (HTTP ${statusCode}).`,
+        detail: serverMsg || `Unexpected response from Gemini API.`
+      };
+    }
+
+    async function fetchGeminiModels(forceRefresh = false) {
+      const activeKeyObj = getActiveKey();
+      const statusBadge = document.getElementById('modelsStatusBadge');
+      const refreshIcon = document.getElementById('refreshModelsIcon');
+
+      if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+      if (!activeKeyObj || !activeKeyObj.key) {
+        const cached = getCachedModels();
+        if (cached && Array.isArray(cached.models) && cached.models.length > 0) {
+          discoveredModels = cached.models;
+          if (statusBadge) statusBadge.innerHTML = `<span class="text-slate-400 font-mono text-[9px]">Cached (${discoveredModels.length})</span>`;
+        } else {
+          discoveredModels = FALLBACK_CHAT_MODELS;
+          if (statusBadge) statusBadge.innerHTML = `<span class="text-amber-400 font-mono text-[9px]">No Key (Preset)</span>`;
+        }
+        renderModelSelector();
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+        return;
+      }
+
+      // Check cache validity (1 hour TTL)
+      if (!forceRefresh) {
+        const cached = getCachedModels();
+        const ONE_HOUR = 3600000;
+        if (cached && cached.keyId === activeKeyObj.id && (Date.now() - cached.timestamp < ONE_HOUR)) {
+          discoveredModels = cached.models;
+          if (statusBadge) statusBadge.innerHTML = `<span class="text-emerald-400 font-mono text-[9px]"><i class="fa-solid fa-cloud mr-1"></i>${discoveredModels.length} models</span>`;
+          renderModelSelector();
+          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+          return;
+        }
+      }
+
+      if (statusBadge) statusBadge.innerHTML = `<span class="text-cyan-400 font-mono text-[9px]"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Querying API...</span>`;
+
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(activeKeyObj.key.trim())}`;
+        const res = await fetch(endpoint, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          const parsed = parseGeminiError(res.status, errJson, 'models.list');
+          console.warn('[Model Discovery] Failed:', parsed);
+
+          const cached = getCachedModels();
+          if (cached && Array.isArray(cached.models) && cached.models.length > 0) {
+            discoveredModels = cached.models;
+            if (statusBadge) statusBadge.innerHTML = `<span class="text-amber-400 font-mono text-[9px]">Cached (${discoveredModels.length})</span>`;
+          } else {
+            discoveredModels = FALLBACK_CHAT_MODELS;
+            if (statusBadge) statusBadge.innerHTML = `<span class="text-rose-400 font-mono text-[9px]">API ${res.status}</span>`;
+          }
+          renderModelSelector();
+          if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+          return;
+        }
+
+        const data = await res.json();
+        if (data.models && Array.isArray(data.models) && data.models.length > 0) {
+          discoveredModels = data.models;
+          saveCachedModels(activeKeyObj.id, discoveredModels);
+          if (statusBadge) statusBadge.innerHTML = `<span class="text-emerald-400 font-mono text-[9px]"><i class="fa-solid fa-check mr-1"></i>${discoveredModels.length} models live</span>`;
+        } else {
+          discoveredModels = FALLBACK_CHAT_MODELS;
+          if (statusBadge) statusBadge.innerHTML = `<span class="text-slate-400 font-mono text-[9px]">Standard models</span>`;
+        }
+      } catch (err) {
+        console.warn('[Model Discovery] Network error:', err);
+        const cached = getCachedModels();
+        if (cached && Array.isArray(cached.models) && cached.models.length > 0) {
+          discoveredModels = cached.models;
+          if (statusBadge) statusBadge.innerHTML = `<span class="text-amber-400 font-mono text-[9px]">Cached (${discoveredModels.length})</span>`;
+        } else {
+          discoveredModels = FALLBACK_CHAT_MODELS;
+          if (statusBadge) statusBadge.innerHTML = `<span class="text-rose-400 font-mono text-[9px]">Offline</span>`;
+        }
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+        renderModelSelector();
+        renderModelsMatrixTable();
+      }
+    }
+
+    function renderModelSelector() {
+      const selector = document.getElementById('modelSelector');
+      if (!selector) return;
+
+      const currentSelected = getSelectedModel();
+
+      // Separate Chat Models vs Specialized Models
+      const chatModels = discoveredModels.filter(m =>
+        Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes('generateContent')
+      );
+
+      const specializedModels = discoveredModels.filter(m =>
+        !Array.isArray(m.supportedGenerationMethods) ||
+        !m.supportedGenerationMethods.includes('generateContent')
+      );
+
+      const sidebarCount = document.getElementById('sidebarModelCount');
+      if (sidebarCount) sidebarCount.textContent = discoveredModels.length;
+
+      const chatCountEl = document.getElementById('chatModelsCount');
+      if (chatCountEl) chatCountEl.textContent = chatModels.length;
+
+      const specCountEl = document.getElementById('specializedModelsCount');
+      if (specCountEl) specCountEl.textContent = specializedModels.length;
+
+      const badgeCountEl = document.getElementById('matrixModelCountBadge');
+      if (badgeCountEl) badgeCountEl.textContent = `${discoveredModels.length} models (${chatModels.length} Chat)`;
+
+      let html = '';
+
+      // 1. Chat & Text Generation optgroup
+      html += `<optgroup label="💬 Chat & Generation Models (Live API)">`;
+      chatModels.forEach(m => {
+        const id = cleanModelName(m.name);
+        const disp = m.displayName || id;
+        const inLimit = formatTokenCount(m.inputTokenLimit);
+        html += `<option value="${escapeHtml(id)}">${escapeHtml(disp)} (${escapeHtml(id)}) • ${inLimit}</option>`;
+      });
+      html += `</optgroup>`;
+
+      // 2. Custom Model optgroup
+      html += `<optgroup label="🛠️ Custom / Direct Model ID">`;
+      html += `<option value="custom">Enter Custom Model ID...</option>`;
+      html += `</optgroup>`;
+
+      // 3. Specialized Models (Disabled with reason)
+      if (specializedModels.length > 0) {
+        html += `<optgroup label="🔒 Specialized Models (No Chat / generateContent)">`;
+        specializedModels.forEach(m => {
+          const id = cleanModelName(m.name);
+          const disp = m.displayName || id;
+          const methods = (m.supportedGenerationMethods || []).join(', ') || 'specialized';
+          html += `<option value="${escapeHtml(id)}" disabled>${escapeHtml(disp)} [${escapeHtml(methods)}] — Non-Chat</option>`;
+        });
+        html += `</optgroup>`;
+      }
+
+      selector.innerHTML = html;
+
+      // Ensure a valid selection is restored or select the best available
+      const cleanSaved = cleanModelName(currentSelected);
+      const existsInChat = chatModels.some(m => cleanModelName(m.name) === cleanSaved);
+
+      if (existsInChat) {
+        selector.value = cleanSaved;
+        document.getElementById('customModelContainer').classList.add('hidden');
+      } else if (selector.querySelector(`option[value="${cleanSaved}"]`)) {
+        selector.value = cleanSaved;
+        document.getElementById('customModelContainer').classList.add('hidden');
+      } else if (currentSelected === 'custom') {
+        selector.value = 'custom';
+        document.getElementById('customModelContainer').classList.remove('hidden');
+      } else {
+        // Fallback hierarchy: gemini-2.5-flash -> gemini-2.0-flash -> gemini-2.5-pro -> gemini-1.5-flash -> first available
+        const priorityCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+        let matched = null;
+        for (const cand of priorityCandidates) {
+          if (chatModels.some(m => cleanModelName(m.name) === cand)) {
+            matched = cand;
+            break;
+          }
+        }
+        if (!matched && chatModels.length > 0) {
+          matched = cleanModelName(chatModels[0].name);
+        }
+        if (matched) {
+          selector.value = matched;
+          localStorage.setItem(STORAGE_KEYS.SELECTED_MODEL, matched);
+        } else {
+          selector.value = 'gemini-2.5-flash';
+        }
+        document.getElementById('customModelContainer').classList.add('hidden');
+      }
+
+      updateActiveModelCard();
+      updateActiveModelLabel();
+    }
+
+    function updateActiveModelCard() {
+      const selectedModelId = cleanModelName(getSelectedModel());
+      const modelObj = discoveredModels.find(m => cleanModelName(m.name) === selectedModelId);
+
+      const nameEl = document.getElementById('activeModelDisplayName');
+      const inEl = document.getElementById('modelInputTokensLabel');
+      const outEl = document.getElementById('modelOutputTokensLabel');
+      const badgeEl = document.getElementById('modelVerificationBadge');
+      const errBanner = document.getElementById('modelErrorBanner');
+
+      if (modelObj) {
+        if (nameEl) nameEl.textContent = modelObj.displayName || selectedModelId;
+        if (inEl) inEl.textContent = formatTokenCount(modelObj.inputTokenLimit);
+        if (outEl) outEl.textContent = formatTokenCount(modelObj.outputTokenLimit);
+      } else {
+        if (nameEl) nameEl.textContent = selectedModelId;
+        if (inEl) inEl.textContent = 'Custom';
+        if (outEl) outEl.textContent = 'Custom';
+      }
+
+      // Check verification cache
+      const verCache = getVerificationCache();
+      const testResult = verCache[selectedModelId];
+
+      if (!testResult) {
+        if (badgeEl) {
+          badgeEl.className = 'text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono shrink-0';
+          badgeEl.innerHTML = `<i class="fa-regular fa-circle-question mr-0.5"></i>Untested`;
+        }
+        if (errBanner) errBanner.classList.add('hidden');
+      } else if (testResult.status === 'verified') {
+        if (badgeEl) {
+          badgeEl.className = 'text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 font-mono shrink-0 font-bold';
+          badgeEl.innerHTML = `<i class="fa-solid fa-circle-check mr-0.5"></i>Verified (${testResult.latencyMs}ms)`;
+        }
+        if (errBanner) errBanner.classList.add('hidden');
+      } else if (testResult.status === 'failed') {
+        if (badgeEl) {
+          badgeEl.className = 'text-[9px] px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-500/50 font-mono shrink-0 font-bold';
+          badgeEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-0.5"></i>Failed`;
+        }
+        if (errBanner) {
+          errBanner.classList.remove('hidden');
+          const errTitle = document.getElementById('modelErrorTitle');
+          const errDesc = document.getElementById('modelErrorDesc');
+          if (errTitle) errTitle.textContent = `Model Error (Code: ${testResult.code || 'ERR'})`;
+          if (errDesc) errDesc.textContent = testResult.error || 'Connection or quota failed.';
+        }
+      }
+    }
+
+    async function verifyActiveModel() {
+      const model = getSelectedModel();
+      return await verifyModel(model);
+    }
+
+    async function verifyModel(modelId) {
+      const cleanId = cleanModelName(modelId);
+      const activeKeyObj = getActiveKey();
+
+      if (!activeKeyObj || !activeKeyObj.key) {
+        alert("Please add an active API key to your Vault before verifying models.");
+        return false;
+      }
+
+      const badgeEl = document.getElementById('modelVerificationBadge');
+      if (badgeEl && cleanModelName(getSelectedModel()) === cleanId) {
+        badgeEl.className = 'text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40 font-mono shrink-0';
+        badgeEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-0.5"></i>Testing...`;
+      }
+
+      // Find model and check if it supports generateContent
+      const modelMeta = discoveredModels.find(m => cleanModelName(m.name) === cleanId);
+      if (modelMeta && Array.isArray(modelMeta.supportedGenerationMethods) && !modelMeta.supportedGenerationMethods.includes('generateContent')) {
+        const verCache = getVerificationCache();
+        verCache[cleanId] = {
+          status: 'failed',
+          code: 400,
+          error: `Model does not support text generation (supported: ${modelMeta.supportedGenerationMethods.join(', ')}).`,
+          timestamp: Date.now()
+        };
+        saveVerificationCache(verCache);
+        updateActiveModelCard();
+        renderModelsMatrixTable();
+        return false;
+      }
+
+      const startTime = performance.now();
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cleanId)}:generateContent?key=${encodeURIComponent(activeKeyObj.key.trim())}`;
+        const payload = {
+          contents: [{
+            role: 'user',
+            parts: [{ text: 'Ping test. Reply with single word PONG.' }]
+          }],
+          generationConfig: {
+            maxOutputTokens: 10,
+            temperature: 0.1
+          }
+        };
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const elapsed = Math.round(performance.now() - startTime);
+        const verCache = getVerificationCache();
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const parsed = parseGeminiError(res.status, errData, cleanId);
+          verCache[cleanId] = {
+            status: 'failed',
+            code: res.status,
+            error: `${parsed.summary} ${parsed.detail}`,
+            timestamp: Date.now()
+          };
+          saveVerificationCache(verCache);
+          updateActiveModelCard();
+          renderModelsMatrixTable();
+          return false;
+        }
+
+        const data = await res.json();
+        const candidate = data.candidates?.[0];
+        const textSample = candidate?.content?.parts?.[0]?.text || 'OK';
+
+        verCache[cleanId] = {
+          status: 'verified',
+          code: 200,
+          latencyMs: elapsed,
+          sample: textSample.trim(),
+          timestamp: Date.now()
+        };
+        saveVerificationCache(verCache);
+        updateActiveModelCard();
+        renderModelsMatrixTable();
+        return true;
+      } catch (err) {
+        const verCache = getVerificationCache();
+        verCache[cleanId] = {
+          status: 'failed',
+          code: 'NET',
+          error: `Network error: ${err.message}`,
+          timestamp: Date.now()
+        };
+        saveVerificationCache(verCache);
+        updateActiveModelCard();
+        renderModelsMatrixTable();
+        return false;
+      }
+    }
+
+    function openModelsMatrixModal() {
+      renderModelsMatrixTable();
+      document.getElementById('modelsMatrixModal').classList.remove('hidden');
+    }
+
+    function closeModelsMatrixModal() {
+      document.getElementById('modelsMatrixModal').classList.add('hidden');
+    }
+
+    function filterModelsMatrix(type) {
+      currentMatrixFilter = type;
+      ['all', 'chat', 'specialized'].forEach(t => {
+        const btn = document.getElementById('filterModels' + t.charAt(0).toUpperCase() + t.slice(1) + 'Btn');
+        if (btn) {
+          if (t === type) {
+            btn.className = 'px-2.5 py-1 rounded-md bg-cyan-600 text-white font-medium text-xs';
+          } else {
+            btn.className = 'px-2.5 py-1 rounded-md bg-darkCard text-slate-300 hover:text-white border border-darkBorder font-medium text-xs';
+          }
+        }
+      });
+      renderModelsMatrixTable();
+    }
+
+    function renderModelsMatrixTable() {
+      const container = document.getElementById('modelsMatrixContainer');
+      if (!container) return;
+
+      const verCache = getVerificationCache();
+      const currentSelected = cleanModelName(getSelectedModel());
+
+      let list = discoveredModels.slice();
+      if (currentMatrixFilter === 'chat') {
+        list = list.filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'));
+      } else if (currentMatrixFilter === 'specialized') {
+        list = list.filter(m => !Array.isArray(m.supportedGenerationMethods) || !m.supportedGenerationMethods.includes('generateContent'));
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs">No models found for this filter. Click "Refresh API" to query Google.</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(m => {
+        const id = cleanModelName(m.name);
+        const isChat = Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent');
+        const isSelected = id === currentSelected;
+        const testRes = verCache[id];
+        const inLimit = formatTokenCount(m.inputTokenLimit);
+        const outLimit = formatTokenCount(m.outputTokenLimit);
+        const methods = (m.supportedGenerationMethods || []).join(', ') || 'N/A';
+
+        let statusBadgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono">Untested</span>`;
+        if (testRes?.status === 'verified') {
+          statusBadgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 font-mono font-bold"><i class="fa-solid fa-check mr-1"></i>Verified (${testRes.latencyMs}ms)</span>`;
+        } else if (testRes?.status === 'failed') {
+          statusBadgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-500/50 font-mono font-bold" title="${escapeHtml(testRes.error || '')}"><i class="fa-solid fa-xmark mr-1"></i>Error (${testRes.code || 'Fail'})</span>`;
+        }
+
+        return `
+          <div class="p-3 rounded-xl border transition-all ${isSelected ? 'bg-cyan-950/40 border-cyan-500/60' : 'bg-darkCard/70 border-darkBorder hover:border-slate-600'} space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg ${isChat ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-800 text-slate-400'} flex items-center justify-center text-xs">
+                  <i class="fa-solid ${isChat ? 'fa-message' : 'fa-cubes'}"></i>
+                </span>
+                <div>
+                  <div class="flex items-center space-x-1.5">
+                    <span class="text-xs font-bold text-slate-100">${escapeHtml(m.displayName || id)}</span>
+                    <span class="text-[10px] bg-slate-800 text-cyan-300 font-mono px-1.5 py-0.5 rounded border border-slate-700">${escapeHtml(id)}</span>
+                    ${isSelected ? `<span class="text-[9px] bg-cyan-500 text-white font-bold px-1.5 py-0.5 rounded">ACTIVE</span>` : ''}
+                    ${isChat ? `<span class="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1 rounded">Chat Ready</span>` : `<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded">Specialized</span>`}
+                  </div>
+                  <p class="text-[10px] text-slate-400 line-clamp-1 mt-0.5">${escapeHtml(m.description || 'Gemini model capability profile.')}</p>
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-2">
+                ${statusBadgeHtml}
+                ${isChat ? `
+                  <button onclick="runModalModelTest('${escapeHtml(id)}')" class="text-[11px] bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/50 px-2 py-1 rounded transition flex items-center space-x-1">
+                    <i class="fa-solid fa-bolt text-[10px]"></i>
+                    <span>Test</span>
+                  </button>
+                  ${!isSelected ? `
+                    <button onclick="selectModelFromMatrix('${escapeHtml(id)}')" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2 py-1 rounded transition">
+                      Select
+                    </button>
+                  ` : ''}
+                ` : `
+                  <span class="text-[10px] text-slate-500 italic">Chat unsupported</span>
+                `}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] bg-slate-900/60 p-2 rounded-lg font-mono text-slate-400">
+              <div>In Tokens: <span class="text-slate-200">${inLimit}</span></div>
+              <div>Out Tokens: <span class="text-slate-200">${outLimit}</span></div>
+              <div class="col-span-2 truncate" title="${escapeHtml(methods)}">Methods: <span class="text-slate-200">${escapeHtml(methods)}</span></div>
+            </div>
+            ${testRes?.status === 'failed' ? `
+              <div class="text-[10px] text-rose-300 bg-rose-950/40 border border-rose-500/30 p-1.5 rounded flex items-start space-x-1">
+                <i class="fa-solid fa-circle-exclamation mt-0.5 text-rose-400 shrink-0"></i>
+                <span>${escapeHtml(testRes.error || 'Failed verification')}</span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function runModalModelTest(modelId) {
+      const btn = event?.currentTarget;
+      if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-[10px]"></i><span>Testing...</span>`;
+      await verifyModel(modelId);
+      renderModelsMatrixTable();
+    }
+
+    function selectModelFromMatrix(modelId) {
+      const cleanId = cleanModelName(modelId);
+      const selector = document.getElementById('modelSelector');
+      if (selector) {
+        selector.value = cleanId;
+        localStorage.setItem(STORAGE_KEYS.SELECTED_MODEL, cleanId);
+        document.getElementById('customModelContainer').classList.add('hidden');
+      }
+      updateActiveModelCard();
+      updateActiveModelLabel();
+      renderModelsMatrixTable();
+      closeModelsMatrixModal();
+    }
+
+    async function testAllChatModels() {
+      if (isTestingAllModels) return;
+      isTestingAllModels = true;
+
+      const testBtn = document.getElementById('testAllModelsBtn');
+      if (testBtn) testBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Testing Suite...</span>`;
+
+      const chatModels = discoveredModels.filter(m =>
+        Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes('generateContent')
+      );
+
+      for (const m of chatModels) {
+        const id = cleanModelName(m.name);
+        await verifyModel(id);
+      }
+
+      isTestingAllModels = false;
+      if (testBtn) testBtn.innerHTML = `<i class="fa-solid fa-vial-circle-check"></i><span>Test All Chat Models</span>`;
+      renderModelsMatrixTable();
+    }
+
+    // ==========================================
     // EVENT LISTENERS & SETTINGS
     // ==========================================
     function getSelectedModel() {
       const selector = document.getElementById('modelSelector');
+      if (!selector) return localStorage.getItem(STORAGE_KEYS.SELECTED_MODEL) || 'gemini-2.5-flash';
       if (selector.value === 'custom') {
         const customVal = document.getElementById('customModelInput').value.trim();
-        return customVal || 'gemini-2.0-flash';
+        return customVal || 'gemini-2.5-flash';
       }
       return selector.value;
     }
 
     function loadSettings() {
-      const savedModel = localStorage.getItem(STORAGE_KEYS.SELECTED_MODEL) || 'gemini-2.0-flash';
+      const savedModel = localStorage.getItem(STORAGE_KEYS.SELECTED_MODEL) || 'gemini-2.5-flash';
+
+      const cached = getCachedModels();
+      if (cached && Array.isArray(cached.models) && cached.models.length > 0) {
+        discoveredModels = cached.models;
+      } else {
+        discoveredModels = FALLBACK_CHAT_MODELS;
+      }
+
+      renderModelSelector();
+
       const selector = document.getElementById('modelSelector');
       const customInput = document.getElementById('customModelInput');
       const customContainer = document.getElementById('customModelContainer');
 
-      if (['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'].includes(savedModel)) {
-        selector.value = savedModel;
+      if (selector.querySelector(`option[value="${cleanModelName(savedModel)}"]`)) {
+        selector.value = cleanModelName(savedModel);
         customContainer.classList.add('hidden');
       } else {
         selector.value = 'custom';
         customInput.value = savedModel;
         customContainer.classList.remove('hidden');
       }
+      updateActiveModelCard();
       updateActiveModelLabel();
 
       const savedSys = localStorage.getItem(STORAGE_KEYS.SYSTEM_INSTRUCTION);
@@ -1570,16 +2376,20 @@
         const customContainer = document.getElementById('customModelContainer');
         if (modelSelector.value === 'custom') {
           customContainer.classList.remove('hidden');
+          const customVal = document.getElementById('customModelInput').value.trim();
+          if (customVal) localStorage.setItem(STORAGE_KEYS.SELECTED_MODEL, customVal);
         } else {
           customContainer.classList.add('hidden');
           localStorage.setItem(STORAGE_KEYS.SELECTED_MODEL, modelSelector.value);
         }
+        updateActiveModelCard();
         updateActiveModelLabel();
       });
 
       const customModelInput = document.getElementById('customModelInput');
       customModelInput.addEventListener('input', () => {
         localStorage.setItem(STORAGE_KEYS.SELECTED_MODEL, customModelInput.value.trim());
+        updateActiveModelCard();
         updateActiveModelLabel();
       });
 
@@ -1730,6 +2540,7 @@
 
       saveVault();
       closeAddKeyModal();
+      fetchGeminiModels(true);
     }
 
     function openKeyVaultModal() {
@@ -1745,23 +2556,27 @@
       const keyObj = vault.find(k => k.id === id);
       if (!keyObj) return;
 
-      alert(`Pinging Google Gemini endpoint with "${keyObj.name}"...`);
+      const targetModel = cleanModelName(getSelectedModel());
+      alert(`Pinging Google Gemini API (${targetModel}) with key "${keyObj.name}"...`);
 
       try {
-        const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(keyObj.key)}`, {
+        const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(targetModel)}:generateContent?key=${encodeURIComponent(keyObj.key.trim())}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: 'Ping' }] }]
+            contents: [{ role: 'user', parts: [{ text: 'Ping test' }] }],
+            generationConfig: { maxOutputTokens: 5 }
           })
         });
 
         if (testRes.ok) {
-          alert(`✅ Valid! Key "${keyObj.name}" is responding.`);
+          alert(`✅ Valid! Key "${keyObj.name}" is responding with ${targetModel}.`);
         } else if (testRes.status === 429) {
-          alert(`⚠️ Quota Exhausted (429)! Key "${keyObj.name}" is rate-limited.`);
+          alert(`⚠️ Quota Exhausted (429)! Key "${keyObj.name}" is rate-limited on ${targetModel}.`);
         } else {
-          alert(`❌ Key returned HTTP ${testRes.status}. Check key permissions.`);
+          const errData = await testRes.json().catch(() => ({}));
+          const parsed = parseGeminiError(testRes.status, errData, targetModel);
+          alert(`❌ Key returned ${testRes.status}:\n${parsed.summary}\n${parsed.detail}`);
         }
       } catch (e) {
         alert(`❌ Network failure: ${e.message}`);

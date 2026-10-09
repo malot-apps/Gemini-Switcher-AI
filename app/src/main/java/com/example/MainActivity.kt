@@ -75,15 +75,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.ui.theme.MyApplicationTheme
+import java.io.File
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    ensureWebViewCacheDirs(this)
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
         GeminiVaultApp()
       }
+    }
+  }
+
+  companion object {
+    fun ensureWebViewCacheDirs(context: Context) {
+      try {
+        val paths = listOf(
+          "WebView/Default/HTTP Cache/Code Cache/js",
+          "WebView/Default/HTTP Cache/Code Cache/wasm",
+          "WebView/Default/HTTP Cache/index-dir",
+          "WebView/Default/Code Cache/js",
+          "WebView/Default/Code Cache/wasm"
+        )
+        for (rel in paths) {
+          File(context.cacheDir, rel).mkdirs()
+          File(context.codeCacheDir, rel).mkdirs()
+        }
+      } catch (_: Exception) {}
     }
   }
 }
@@ -232,11 +252,24 @@ fun GeminiWebView(
   AndroidView(
     modifier = modifier.testTag("gemini_web_view"),
     factory = { ctx ->
+      MainActivity.ensureWebViewCacheDirs(ctx)
       WebView(ctx).apply {
         layoutParams = ViewGroup.LayoutParams(
           ViewGroup.LayoutParams.MATCH_PARENT,
           ViewGroup.LayoutParams.MATCH_PARENT
         )
+
+        // On emulator/headless environments without DRM hardware render nodes,
+        // use software rendering layer to avoid MESA driver errors and hiddenapi RenderNode reflection warnings
+        val hasDri = try {
+          val dri = File("/dev/dri")
+          dri.exists() && (dri.listFiles()?.isNotEmpty() == true)
+        } catch (_: Exception) {
+          false
+        }
+        if (!hasDri) {
+          setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+        }
 
         settings.apply {
           javaScriptEnabled = true
