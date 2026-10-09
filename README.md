@@ -58,7 +58,7 @@ It eliminates the single biggest obstacle when building or experimenting with Ge
 ### **Tonmoy Mir Malot**
 - 🌐 **GitHub Profile**: [@mirmalot](https://github.com/mirmalot)
 - 🔗 **Direct URL**: [https://github.com/mirmalot](https://github.com/mirmalot)
-- 💼 **Project Repository**: [https://github.com/mirmalot/gemini-switcher-ai](https://github.com/mirmalot)
+- 💼 **Project Repository**: [https://github.com/malot-apps/Gemini-Switcher-AI](https://github.com/malot-apps/Gemini-Switcher-AI)
 
 If this project helps you bypass rate limits and build apps faster, please consider starring the repository on GitHub!
 
@@ -161,13 +161,18 @@ Drag and drop the folder containing `index.html` onto [Netlify Drop](https://app
 ## 📱 Android App Integration & APK Download
 
 ### Download from GitHub Releases
-1. Navigate to the **Releases** tab: `https://github.com/mirmalot/<repo-name>/releases`.
-2. Download `app-debug.apk` onto your Android phone.
+1. Navigate to the **Releases** tab: [https://github.com/malot-apps/Gemini-Switcher-AI/releases](https://github.com/malot-apps/Gemini-Switcher-AI/releases).
+2. Download `Gemini-Switcher-AI-debug.apk` onto your Android device.
 3. Tap the file to install (grant "Install unknown apps" if prompted).
 
-### Local Compilation with Gradle
+### Download from GitHub Actions Artifacts
+1. Go to the **Actions** tab on GitHub: [https://github.com/malot-apps/Gemini-Switcher-AI/actions](https://github.com/malot-apps/Gemini-Switcher-AI/actions).
+2. Select the latest completed run from the `Build & Release Android APK` workflow.
+3. Scroll down to **Artifacts** and download the `Gemini-Switcher-AI-APK` zip containing the debug APK.
+
+### Local Compilation with Gradle Wrapper
 ```bash
-gradle assembleDebug
+./gradlew assembleDebug
 ```
 Locate the generated APK at:
 `app/build/outputs/apk/debug/app-debug.apk`

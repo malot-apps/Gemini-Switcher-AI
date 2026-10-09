@@ -238,9 +238,6 @@ fun GeminiWebView(
           ViewGroup.LayoutParams.MATCH_PARENT
         )
 
-        // Use software layer rendering to completely bypass Mesa DRM / rendernode access
-        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-
         settings.apply {
           javaScriptEnabled = true
           domStorageEnabled = true
@@ -311,7 +308,6 @@ fun GeminiWebView(
             detail: RenderProcessGoneDetail?
           ): Boolean {
             view?.let {
-              it.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
               it.loadDataWithBaseURL(
                 "https://generativelanguage.googleapis.com",
                 htmlData,
