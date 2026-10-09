@@ -193,6 +193,22 @@
     </div>
   </div>
 
+  <!-- RESILIENCE / RETRY / FALLBACK NOTIFICATION TOAST -->
+  <div id="resilienceToast" class="fixed top-28 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-10px] w-11/12 max-w-lg">
+    <div id="resilienceToastBox" class="bg-slate-900/95 border border-cyan-500/60 rounded-xl p-3 shadow-2xl backdrop-blur flex items-start space-x-3 text-slate-200">
+      <div id="resilienceToastIconContainer" class="p-1.5 bg-cyan-500/20 rounded-lg text-cyan-400 shrink-0 mt-0.5">
+        <i id="resilienceToastIcon" class="fa-solid fa-rotate text-base"></i>
+      </div>
+      <div class="flex-1 text-xs">
+        <div class="flex items-center justify-between font-bold text-slate-100">
+          <span id="resilienceToastTitle">API Overload Recovery</span>
+          <span id="resilienceToastTag" class="text-[10px] bg-cyan-800/80 px-1.5 py-0.5 rounded text-cyan-200 font-mono">503 Handled</span>
+        </div>
+        <p id="resilienceToastDetails" class="text-slate-300 mt-0.5 leading-tight">Exponential backoff retry with jitter in progress...</p>
+      </div>
+    </div>
+  </div>
+
   <!-- MAIN APP WORKSPACE CONTAINER -->
   <div class="flex-1 flex overflow-hidden relative">
 
@@ -1284,10 +1300,91 @@
       }, 5500);
     }
 
+    function showResilienceToast(title, badgeText, message, type = 'retry') {
+      const toast = document.getElementById('resilienceToast');
+      const toastBox = document.getElementById('resilienceToastBox');
+      const iconContainer = document.getElementById('resilienceToastIconContainer');
+      const icon = document.getElementById('resilienceToastIcon');
+      const titleEl = document.getElementById('resilienceToastTitle');
+      const tagEl = document.getElementById('resilienceToastTag');
+      const detailsEl = document.getElementById('resilienceToastDetails');
+      if (!toast || !detailsEl) return;
+
+      if (titleEl) titleEl.textContent = title;
+      if (tagEl) tagEl.textContent = badgeText;
+      detailsEl.innerHTML = message;
+
+      if (type === 'fallback') {
+        if (toastBox) toastBox.className = 'bg-indigo-950/95 border border-indigo-500/60 rounded-xl p-3 shadow-2xl backdrop-blur flex items-start space-x-3 text-indigo-200';
+        if (iconContainer) iconContainer.className = 'p-1.5 bg-indigo-500/20 rounded-lg text-indigo-400 shrink-0 mt-0.5';
+        if (icon) icon.className = 'fa-solid fa-shuffle text-base';
+        if (tagEl) tagEl.className = 'text-[10px] bg-indigo-800/80 px-1.5 py-0.5 rounded text-indigo-200 font-mono';
+      } else {
+        if (toastBox) toastBox.className = 'bg-slate-900/95 border border-cyan-500/60 rounded-xl p-3 shadow-2xl backdrop-blur flex items-start space-x-3 text-slate-200';
+        if (iconContainer) iconContainer.className = 'p-1.5 bg-cyan-500/20 rounded-lg text-cyan-400 shrink-0 mt-0.5';
+        if (icon) icon.className = 'fa-solid fa-rotate fa-spin text-base';
+        if (tagEl) tagEl.className = 'text-[10px] bg-cyan-800/80 px-1.5 py-0.5 rounded text-cyan-200 font-mono';
+      }
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 5500);
+    }
+
+    // Safe Logger: logs debug info without ever printing secret API keys
+    function safeLog(level, message, meta = {}) {
+      const sanitizedMeta = { ...meta };
+      if (sanitizedMeta.key) sanitizedMeta.key = maskKey(sanitizedMeta.key);
+      if (sanitizedMeta.endpoint) sanitizedMeta.endpoint = sanitizedMeta.endpoint.replace(/key=[^&]+/g, 'key=REDACTED');
+      const timestamp = new Date().toISOString();
+      const prefix = `[GeminiClient ${timestamp}]`;
+      if (level === 'error') console.error(prefix, message, sanitizedMeta);
+      else if (level === 'warn') console.warn(prefix, message, sanitizedMeta);
+      else console.log(prefix, message, sanitizedMeta);
+    }
+
+    function calculateBackoffMs(attempt) {
+      const baseMs = 1000;
+      const maxMs = 8000;
+      const exponential = Math.min(maxMs, baseMs * Math.pow(2, attempt));
+      const jitter = Math.floor(Math.random() * 800);
+      return exponential + jitter;
+    }
+
+    // Discovers a compatible fallback text model from dynamically discovered models
+    function findFallbackChatModel(currentModelId, triedModels = []) {
+      const currentClean = cleanModelName(currentModelId);
+      const candidates = (discoveredModels || []).filter(m => {
+        const id = cleanModelName(m.name);
+        const hasGenContent = Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent');
+        return hasGenContent && id !== currentClean && !triedModels.includes(id);
+      });
+
+      if (candidates.length === 0) return null;
+
+      // Priority ranking: prefer fast and stable models
+      const priorityOrder = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      for (const p of priorityOrder) {
+        const found = candidates.find(c => cleanModelName(c.name) === p);
+        if (found) return cleanModelName(found.name);
+      }
+
+      return cleanModelName(candidates[0].name);
+    }
+
     // ==========================================
-    // GEMINI API CLIENT (DIRECT FETCH)
+    // GEMINI API CLIENT (DIRECT FETCH WITH RESILIENCE)
     // ==========================================
-    async function executeGeminiRequest(messages, model, systemInstruction, retryAttempt = 0) {
+    async function executeGeminiRequest(messages, model, systemInstruction, retryContext = {}) {
+      const maxTransientRetries = 3;
+      const currentAttempt = retryContext.attempt || 0;
+      const triedModels = retryContext.triedModels || [cleanModelName(model)];
+      const triedKeys = retryContext.triedKeys || [];
+
       let currentKeyObj = getActiveKey();
       if (!currentKeyObj) {
         throw new Error("No API Key in vault. Please add a Gemini API Key first.");
@@ -1312,66 +1409,251 @@
       currentKeyObj.requestCount = (currentKeyObj.requestCount || 0) + 1;
       saveVault();
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload)
+      safeLog('log', `Sending request to ${cleanId}`, {
+        model: cleanId,
+        keyName: currentKeyObj.name,
+        attempt: currentAttempt,
+        endpoint
       });
 
-      let isRateLimited = response.status === 429;
+      let response;
       let errData = null;
 
+      try {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyPayload)
+        });
+      } catch (networkErr) {
+        safeLog('warn', `Network fetch failed on ${cleanId}: ${networkErr.message}`);
+
+        // Network glitch retry with exponential backoff
+        if (currentAttempt < maxTransientRetries) {
+          const delay = calculateBackoffMs(currentAttempt);
+          safeLog('log', `Scheduling network retry in ${delay}ms...`);
+          showResilienceToast(
+            'Network Glitch Detected',
+            `Retry #${currentAttempt + 1}`,
+            `Connection interrupted. Retrying in ${(delay / 1000).toFixed(1)}s with jitter...`,
+            'retry'
+          );
+          await new Promise(r => setTimeout(r, delay));
+          return await executeGeminiRequest(messages, model, systemInstruction, {
+            ...retryContext,
+            attempt: currentAttempt + 1,
+            triedModels,
+            triedKeys
+          });
+        }
+
+        // Network failed after retries, test model fallback if available
+        const fallback = findFallbackChatModel(cleanId, triedModels);
+        if (fallback) {
+          safeLog('warn', `Network retries exhausted on ${cleanId}. Falling back to verified model ${fallback}`);
+          showResilienceToast(
+            'Failover to Compatible Model',
+            fallback,
+            `Network issues with ${cleanId}. Auto-routing request to <strong>${fallback}</strong>...`,
+            'fallback'
+          );
+          return await executeGeminiRequest(messages, fallback, systemInstruction, {
+            attempt: 0,
+            triedModels: [...triedModels, fallback],
+            triedKeys
+          });
+        }
+
+        throw new Error(`Network failure connecting to Google AI: ${networkErr.message}. Please check your internet connection.`);
+      }
+
+      // Check HTTP Status and body error
       if (!response.ok) {
         errData = await response.json().catch(() => ({}));
-        const errMsg = (errData.error?.message || '').toLowerCase();
-        const errStatus = (errData.error?.status || '').toUpperCase();
-        if (errStatus === 'RESOURCE_EXHAUSTED' || errMsg.includes('quota') || errMsg.includes('rate limit') || errMsg.includes('resource exhausted') || errMsg.includes('too many requests')) {
-          isRateLimited = true;
-        }
+        const status = response.status;
+        const errMsg = (errData?.error?.message || '').toLowerCase();
+        const errStatus = (errData?.error?.status || '').toUpperCase();
 
-        // Automatic retry if model rejects system instruction with HTTP 400
-        if (response.status === 400 && systemInstruction) {
+        safeLog('warn', `API responded with HTTP ${status}`, {
+          status,
+          model: cleanId,
+          error: errData?.error?.message || 'Unknown'
+        });
+
+        // 1. HTTP 400 with system instruction incompatibility: retry immediately without system instruction
+        if (status === 400 && systemInstruction) {
           if (errMsg.includes('system_instruction') || errMsg.includes('systeminstruction')) {
-            console.warn(`[Auto-Recovery] Model ${cleanId} rejected system instruction. Retrying without it...`);
-            return await executeGeminiRequest(messages, model, null, retryAttempt);
+            safeLog('warn', `Model ${cleanId} rejected system instruction. Retrying request without it...`);
+            return await executeGeminiRequest(messages, model, null, retryContext);
           }
         }
-      }
 
-      // 429 & Quota Auto-Rotation
-      if (isRateLimited) {
-        console.warn(`[Auto-Rotate] Rate limit hit on key: ${currentKeyObj.name} for model: ${cleanId}`);
-        currentKeyObj.rateLimitCount = (currentKeyObj.rateLimitCount || 0) + 1;
-        currentKeyObj.cooldownUntil = Date.now() + COOLDOWN_DURATION_MS;
-        currentKeyObj.status = 'rate-limited';
+        // 2. HTTP 429 or Quota exhaustion: Rotate API Key
+        const isQuotaExhausted = status === 429 ||
+          errStatus === 'RESOURCE_EXHAUSTED' ||
+          errMsg.includes('quota') ||
+          errMsg.includes('rate limit') ||
+          errMsg.includes('resource exhausted') ||
+          errMsg.includes('too many requests');
 
-        const nextKeyObj = getNextAvailableKey(currentKeyObj.id);
+        if (isQuotaExhausted) {
+          safeLog('warn', `Quota/Rate limit reached on key "${currentKeyObj.name}" for model ${cleanId}`);
+          currentKeyObj.rateLimitCount = (currentKeyObj.rateLimitCount || 0) + 1;
+          currentKeyObj.cooldownUntil = Date.now() + COOLDOWN_DURATION_MS;
+          currentKeyObj.status = 'rate-limited';
 
-        if (nextKeyObj && nextKeyObj.id !== currentKeyObj.id && retryAttempt < vault.length) {
-          const oldName = currentKeyObj.name;
-          setActiveKey(nextKeyObj.id);
-          saveVault();
+          const newTriedKeys = [...triedKeys, currentKeyObj.id];
+          const nextKeyObj = getNextAvailableKey(currentKeyObj.id);
 
-          showRotationToast(oldName, nextKeyObj.name, cleanId);
-          return await executeGeminiRequest(messages, model, systemInstruction, retryAttempt + 1);
-        } else {
-          saveVault();
-          throw new Error(`Rate limit exceeded across all available keys for ${cleanId}. Please wait ${Math.ceil(COOLDOWN_DURATION_MS / 1000)}s or add another API key.`);
+          if (nextKeyObj && nextKeyObj.id !== currentKeyObj.id && newTriedKeys.length <= vault.length) {
+            const oldName = currentKeyObj.name;
+            setActiveKey(nextKeyObj.id);
+            saveVault();
+
+            showRotationToast(oldName, nextKeyObj.name, cleanId);
+            return await executeGeminiRequest(messages, model, systemInstruction, {
+              attempt: 0,
+              triedModels,
+              triedKeys: newTriedKeys
+            });
+          } else {
+            // All keys in vault hit quota limit. Check if model fallback has separate quota.
+            const fallback = findFallbackChatModel(cleanId, triedModels);
+            if (fallback) {
+              safeLog('warn', `All keys quota exhausted on ${cleanId}. Trying fallback model ${fallback}...`);
+              showResilienceToast(
+                'Quota Failover',
+                fallback,
+                `Quota exhausted on ${cleanId}. Switching to alternative compatible model <strong>${fallback}</strong>...`,
+                'fallback'
+              );
+              return await executeGeminiRequest(messages, fallback, systemInstruction, {
+                attempt: 0,
+                triedModels: [...triedModels, fallback],
+                triedKeys: []
+              });
+            }
+
+            saveVault();
+            const parsed = parseGeminiError(429, errData, cleanId);
+            throw new Error(`${parsed.summary} ${parsed.detail}`);
+          }
         }
-      }
 
-      if (!response.ok) {
-        const parsed = parseGeminiError(response.status, errData, cleanId);
+        // 3. HTTP 500, 502, 503, 504: Server Overload / Transient Glitch
+        // Critical: Do NOT rotate API keys for general 503 server overloads!
+        const isTransientServerError = [500, 502, 503, 504].includes(status) ||
+          errStatus === 'UNAVAILABLE' ||
+          errMsg.includes('overloaded') ||
+          errMsg.includes('unavailable') ||
+          errMsg.includes('high demand');
+
+        if (isTransientServerError) {
+          if (currentAttempt < maxTransientRetries) {
+            const delay = calculateBackoffMs(currentAttempt);
+            safeLog('warn', `Transient server error HTTP ${status} on ${cleanId}. Backing off for ${delay}ms (Attempt ${currentAttempt + 1}/${maxTransientRetries})`);
+
+            showResilienceToast(
+              status === 503 ? 'Gemini Server Overloaded (503)' : `Transient Server Issue (${status})`,
+              `Retry in ${(delay / 1000).toFixed(1)}s`,
+              `Google AI servers are experiencing peak demand. Retrying request with backoff (${currentAttempt + 1}/${maxTransientRetries})...`,
+              'retry'
+            );
+
+            await new Promise(r => setTimeout(r, delay));
+            return await executeGeminiRequest(messages, model, systemInstruction, {
+              ...retryContext,
+              attempt: currentAttempt + 1,
+              triedModels,
+              triedKeys
+            });
+          }
+
+          // Retries exhausted for this model: Trigger automatic fallback to another dynamically discovered available model
+          const fallback = findFallbackChatModel(cleanId, triedModels);
+          if (fallback) {
+            safeLog('warn', `Server error ${status} persisted on ${cleanId} after ${maxTransientRetries} retries. Falling back to ${fallback}`);
+            showResilienceToast(
+              'Model Overload Fallback',
+              fallback,
+              `<strong>${cleanId}</strong> is unavailable (HTTP ${status}). Automatically routing to verified model <strong>${fallback}</strong>...`,
+              'fallback'
+            );
+
+            return await executeGeminiRequest(messages, fallback, systemInstruction, {
+              attempt: 0,
+              triedModels: [...triedModels, fallback],
+              triedKeys
+            });
+          }
+
+          const parsed = parseGeminiError(status, errData, cleanId);
+          throw new Error(`${parsed.summary} ${parsed.detail}`);
+        }
+
+        // 4. HTTP 404: Model Not Found (e.g. invalid/retired model like gemini-3.8-flash)
+        if (status === 404) {
+          const fallback = findFallbackChatModel(cleanId, triedModels);
+          if (fallback) {
+            safeLog('warn', `Model ${cleanId} returned 404 Not Found. Auto-falling back to available model ${fallback}`);
+            showResilienceToast(
+              'Model Not Found (404)',
+              `Fallback: ${fallback}`,
+              `Model <strong>${cleanId}</strong> does not exist or is deprecated. Rerouting to verified model <strong>${fallback}</strong>...`,
+              'fallback'
+            );
+
+            return await executeGeminiRequest(messages, fallback, systemInstruction, {
+              attempt: 0,
+              triedModels: [...triedModels, fallback],
+              triedKeys
+            });
+          }
+
+          const parsed = parseGeminiError(404, errData, cleanId);
+          throw new Error(`${parsed.summary} ${parsed.detail}`);
+        }
+
+        // 5. HTTP 401 or 403: Key-specific permission failure
+        if (status === 401 || status === 403) {
+          safeLog('warn', `Key ${currentKeyObj.name} lacks permission (HTTP ${status}). Attempting key rotation...`);
+          currentKeyObj.status = 'error';
+
+          const newTriedKeys = [...triedKeys, currentKeyObj.id];
+          const nextKeyObj = getNextAvailableKey(currentKeyObj.id);
+
+          if (nextKeyObj && nextKeyObj.id !== currentKeyObj.id && newTriedKeys.length <= vault.length) {
+            const oldName = currentKeyObj.name;
+            setActiveKey(nextKeyObj.id);
+            saveVault();
+
+            showRotationToast(oldName, nextKeyObj.name, cleanId);
+            return await executeGeminiRequest(messages, model, systemInstruction, {
+              attempt: 0,
+              triedModels,
+              triedKeys: newTriedKeys
+            });
+          }
+
+          const parsed = parseGeminiError(status, errData, cleanId);
+          throw new Error(`${parsed.summary} ${parsed.detail}`);
+        }
+
+        // 6. Generic unhandled error
+        const parsed = parseGeminiError(status, errData, cleanId);
         throw new Error(`${parsed.summary} ${parsed.detail}`);
       }
 
+      // Successful response parse
       const data = await response.json();
+      safeLog('log', `Response received successfully from ${cleanId}`);
+
       const candidate = data.candidates?.[0];
       if (!candidate || !candidate.content?.parts) {
         if (data.promptFeedback?.blockReason) {
           throw new Error(`Response blocked by Gemini safety filters: ${data.promptFeedback.blockReason}`);
         }
-        throw new Error("No response text returned by Gemini model.");
+        throw new Error(`No response text returned by model ${cleanId}.`);
       }
 
       const textOutput = candidate.content.parts
@@ -1380,7 +1662,7 @@
         .join('');
 
       if (!textOutput) {
-        throw new Error("Gemini returned empty text output.");
+        throw new Error(`Gemini model ${cleanId} returned empty text output.`);
       }
 
       return textOutput;
@@ -1737,22 +2019,23 @@
 
     function parseGeminiError(statusCode, errJson, modelId) {
       const serverMsg = errJson?.error?.message || '';
-      const statusStr = errJson?.error?.status || '';
+      const statusStr = (errJson?.error?.status || '').toUpperCase();
+      const lowerMsg = serverMsg.toLowerCase();
 
       if (statusCode === 400) {
-        if (serverMsg.includes('system_instruction') || serverMsg.includes('systemInstruction')) {
+        if (lowerMsg.includes('system_instruction') || lowerMsg.includes('systeminstruction')) {
           return {
             code: 400,
             type: 'UNSUPPORTED_SYSTEM_INSTRUCTION',
             summary: `System instructions not supported by ${modelId}.`,
-            detail: `The model rejected the system instruction. Retry without a system persona.`
+            detail: `The model rejected the system instruction parameter. Retry without a system prompt.`
           };
         }
         return {
           code: 400,
           type: 'BAD_REQUEST',
-          summary: `Invalid request for model ${modelId}.`,
-          detail: serverMsg || 'Parameters or generation configuration unsupported by this model.'
+          summary: `Invalid request for model ${modelId} (HTTP 400).`,
+          detail: serverMsg || 'Parameters, message format, or generation configuration is unsupported by this model.'
         };
       }
 
@@ -1761,7 +2044,7 @@
           code: statusCode,
           type: 'PERMISSION_DENIED',
           summary: `Permission denied (${statusCode}).`,
-          detail: serverMsg || `API key is invalid or lacks access to ${modelId}. Verify key in Google AI Studio.`
+          detail: serverMsg || `API key is invalid, inactive, or lacks authorization for model ${modelId}. Verify your key in Google AI Studio.`
         };
       }
 
@@ -1769,17 +2052,36 @@
         return {
           code: 404,
           type: 'MODEL_NOT_FOUND',
-          summary: `Model ${modelId} not found (404).`,
-          detail: `This model ID does not exist, has been deprecated, or is not available for this key.`
+          summary: `Model ${modelId} not found (HTTP 404).`,
+          detail: `The model ID does not exist, has been retired/deprecated, or is unavailable in your region/API tier. Use "Refresh API" to see available models.`
         };
       }
 
-      if (statusCode === 429 || statusStr === 'RESOURCE_EXHAUSTED' || serverMsg.toLowerCase().includes('quota') || serverMsg.toLowerCase().includes('rate limit')) {
+      if (statusCode === 429 || statusStr === 'RESOURCE_EXHAUSTED' || lowerMsg.includes('quota') || lowerMsg.includes('rate limit') || lowerMsg.includes('resource exhausted') || lowerMsg.includes('too many requests')) {
         return {
           code: 429,
           type: 'QUOTA_EXHAUSTED',
-          summary: `Rate limit / Quota exceeded (429).`,
-          detail: `Daily request quota or per-minute rate limit hit for ${modelId}. Key will auto-rotate.`
+          summary: `Rate limit / Quota exceeded (HTTP 429).`,
+          detail: `Daily request quota or per-minute rate limit reached for model ${modelId}. Vault key will auto-rotate to maintain uptime.`
+        };
+      }
+
+      if (statusCode === 503 || statusStr === 'UNAVAILABLE' || lowerMsg.includes('overloaded') || lowerMsg.includes('unavailable') || lowerMsg.includes('high demand') || lowerMsg.includes('try again later')) {
+        return {
+          code: 503,
+          type: 'MODEL_OVERLOADED_503',
+          summary: `Model ${modelId} is temporarily overloaded (HTTP 503).`,
+          detail: serverMsg || `Google's servers are experiencing transient peak load for this model. The system applied exponential backoff retries with jitter and model fallback.`
+        };
+      }
+
+      if (statusCode === 500 || statusCode === 502 || statusCode === 504) {
+        const errorName = statusCode === 500 ? 'Internal Server Error' : statusCode === 502 ? 'Bad Gateway' : 'Gateway Timeout';
+        return {
+          code: statusCode,
+          type: 'SERVER_ERROR',
+          summary: `Google Gemini service ${errorName} (HTTP ${statusCode}).`,
+          detail: serverMsg || `The upstream Gemini backend experienced a temporary infrastructure glitch. Retries and failovers were attempted.`
         };
       }
 
@@ -1787,7 +2089,7 @@
         return {
           code: statusCode,
           type: 'SERVER_ERROR',
-          summary: `Google AI service error (${statusCode}).`,
+          summary: `Google AI service error (HTTP ${statusCode}).`,
           detail: serverMsg || `Gemini backend is temporarily experiencing issues. Please try again.`
         };
       }
@@ -2557,7 +2859,7 @@
       if (!keyObj) return;
 
       const targetModel = cleanModelName(getSelectedModel());
-      alert(`Pinging Google Gemini API (${targetModel}) with key "${keyObj.name}"...`);
+      safeLog('log', `Health check started for key ${keyObj.name} using ${targetModel}`);
 
       try {
         const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(targetModel)}:generateContent?key=${encodeURIComponent(keyObj.key.trim())}`, {
@@ -2570,16 +2872,34 @@
         });
 
         if (testRes.ok) {
-          alert(`✅ Valid! Key "${keyObj.name}" is responding with ${targetModel}.`);
-        } else if (testRes.status === 429) {
-          alert(`⚠️ Quota Exhausted (429)! Key "${keyObj.name}" is rate-limited on ${targetModel}.`);
+          keyObj.status = 'ready';
+          keyObj.cooldownUntil = null;
+          saveVault();
+          renderVaultUI();
+          alert(`✅ Valid! Key "${keyObj.name}" is healthy and responding with ${targetModel}.`);
         } else {
           const errData = await testRes.json().catch(() => ({}));
           const parsed = parseGeminiError(testRes.status, errData, targetModel);
-          alert(`❌ Key returned ${testRes.status}:\n${parsed.summary}\n${parsed.detail}`);
+
+          if (testRes.status === 429) {
+            keyObj.status = 'rate-limited';
+            keyObj.cooldownUntil = Date.now() + COOLDOWN_DURATION_MS;
+            saveVault();
+            renderVaultUI();
+            alert(`⚠️ Quota / Rate-Limit (HTTP 429)!\nKey "${keyObj.name}" has reached its quota limit on ${targetModel}.\n\n${parsed.detail}`);
+          } else if (testRes.status === 503) {
+            alert(`⏳ Model Overloaded (HTTP 503)!\nGoogle Gemini servers are temporarily experiencing high demand on ${targetModel}.\n\nNote: This is a server-side overload, NOT a key failure.`);
+          } else if (testRes.status === 401 || testRes.status === 403) {
+            keyObj.status = 'error';
+            saveVault();
+            renderVaultUI();
+            alert(`❌ Permission Denied (HTTP ${testRes.status})!\nKey "${keyObj.name}" is invalid or lacks access to ${targetModel}.\n\n${parsed.detail}`);
+          } else {
+            alert(`❌ API Error (HTTP ${testRes.status}):\n${parsed.summary}\n${parsed.detail}`);
+          }
         }
       } catch (e) {
-        alert(`❌ Network failure: ${e.message}`);
+        alert(`❌ Network failure: ${e.message}\nUnable to reach Google Gemini API endpoints.`);
       }
     }
 
